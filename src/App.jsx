@@ -7,6 +7,7 @@ import PLDView from './features/pld/PLDView';
 import CotizadorView from './features/cotizador/CotizadorView';
 import AccountingView from './features/accounting/AccountingView';
 import ReportsView from './features/reports/ReportsView';
+import CalendarView from './features/calendar/CalendarView';
 
 function App() {
   // Global State
@@ -45,6 +46,8 @@ function App() {
         return <AccountingView />;
       case 'reports':
         return <ReportsView />;
+      case 'calendar':
+        return <CalendarView />;
       default:
         return <DashboardOverview />;
     }

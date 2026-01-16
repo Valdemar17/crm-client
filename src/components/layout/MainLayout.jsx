@@ -43,6 +43,10 @@ export default function MainLayout({ children, activeTab, onTabChange, isMobileM
                 />
              </div>
 
+            <div className="hidden lg:block text-sm font-medium text-slate-500 capitalize">
+              {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+
              <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4">
                 <button className="p-2 text-slate-400 hover:text-[#135bec] hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-full transition-colors relative">
                    <Bell size={20} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar } from 'lucide-react';
 import NavItem from './NavItem';
 import logo from '../../assets/sofimas-logo.png';
 
@@ -11,6 +11,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
     { id: 'cotizador', label: 'Cotizador', icon: FileText },
     { id: 'accounting', label: 'Contabilidad', icon: Calculator },
     { id: 'reports', label: 'Reportes', icon: FileBarChart },
+    { id: 'calendar', label: 'Calendario', icon: Calendar },
   ];
 
   return (
@@ -32,8 +33,12 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
         
         {/* Logo Section */}
         <div className="p-6">
-          <div className="flex items-center justify-center mb-8">
-            <img src={logo} alt="Sofimas Logo" className="w-4/5 h-auto object-contain" />
+          <div className="flex items-center justify-center mb-8 px-2">
+            <img 
+              src={logo} 
+              alt="Sofimas Logo" 
+              className="w-4/5 h-auto object-contain rounded-xl" 
+            />
           </div>
 
           {/* Navigation */}

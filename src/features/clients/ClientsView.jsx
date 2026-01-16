@@ -5,6 +5,7 @@ import AddClientModal from './components/AddClientModal';
 import EditClientModal from './components/EditClientModal';
 import ViewClientModal from './components/ViewClientModal';
 import AIEmailModal from './components/AIEmailModal';
+import DetalleCliente from './DetalleCliente';
 
 // Mock Data
 const INITIAL_CLIENTS = [
@@ -18,9 +19,21 @@ export default function ClientsView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
-  const [viewingClient, setViewingClient] = useState(null);
+  const [viewingClient, setViewingClient] = useState(null); // Used for Modal
   const [emailingClient, setEmailingClient] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
+  const [detailedClient, setDetailedClient] = useState(null); // New state for Full Page Detail
+
+  // Render Full Detail Page if selected
+  if (detailedClient) {
+      return (
+          <DetalleCliente 
+              clienteId={detailedClient.id} 
+              onBack={() => setDetailedClient(null)}
+              initialClientData={detailedClient}
+          />
+      );
+  }
 
   // Filter Logic safely
   const filteredClients = clients.filter(client => {
@@ -140,9 +153,9 @@ export default function ClientsView() {
                        {/* Action Buttons */}
                        <div className="flex items-center gap-1">
                           <button 
-                            onClick={() => setViewingClient(client)}
+                            onClick={() => setDetailedClient(client)}
                             className="p-2 text-slate-400 hover:text-[#135bec] hover:bg-[#135bec]/10 rounded-lg transition-colors"
-                            title="Ver Detalles"
+                            title="Ver Expediente"
                           >
                             <Eye size={18} />
                           </button>
