@@ -3,6 +3,7 @@ import { Calculator, Download, Loader2, Sparkles } from 'lucide-react';
 import { generateGeminiContent } from '../../services/api';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import logo from '../../assets/sofimas-logo.png';
 
 export default function CotizadorView() {
   const [formData, setFormData] = useState({
@@ -197,6 +198,16 @@ export default function CotizadorView() {
         // Pago inicial sin primera renta
         const pagoInicial = comisionApertura + gastosRegistro + (montoAnticipoTotal * (1 + IVA));
 
+        // Fecha Calculation Setup
+        const fechaInicialDate = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00'); // Default to today or use formData if available
+        // Use formData.fechaInicial similar to credit logic if it exists, but formData default is today string
+        const fechaInicialVal = formData.fechaInicial ? new Date(formData.fechaInicial + 'T00:00:00') : fechaInicialDate;
+        
+        let fechaPrimerPago = new Date(fechaInicialVal.getFullYear(), fechaInicialVal.getMonth(), 10);
+        if (fechaInicialVal.getDate() > 5) {
+             fechaPrimerPago.setMonth(fechaPrimerPago.getMonth() + 1);
+        }
+
         let saldoBien = aFinanciarBien;
         let saldoSeguro = aFinanciarSeguro;
         const tablaData = [];
@@ -204,6 +215,7 @@ export default function CotizadorView() {
         // Fila 0 - Inicio
         tablaData.push({
             periodo: 0,
+            fecha: fechaInicialVal.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }),
             saldoInicial: 0,
             renta: 0,
             interes: 0,
@@ -217,6 +229,16 @@ export default function CotizadorView() {
         });
 
         for (let i = 1; i <= plazo; i++) {
+            // Fecha Logic
+            let fechaPago = new Date(fechaPrimerPago);
+            if (i === plazo) {
+                // Logic simplificada para vencimiento, a la practica SOFOM dia 20 siempre
+                fechaPago.setMonth(fechaPrimerPago.getMonth() + i - 1);
+            } else {
+                fechaPago.setMonth(fechaPrimerPago.getMonth() + i - 1);
+            }
+            const fechaStr = fechaPago.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
             // Cálculos Bien
             const interesBien = saldoBien * tasaMensual;
             let capitalBien = rentaBienSinIva - interesBien;
@@ -233,12 +255,6 @@ export default function CotizadorView() {
             saldoBien -= capitalBien;
             saldoSeguro -= capitalSeguro;
 
-            // Ajuste de saldos negativos o residuales pequeños
-            if (i === plazo) {
-                // En el último periodo, ajustamos para que cuadre exacto con residual esperado si fuera necesario
-                // Pero aquí el saldoBien debería acercarse al valorResidual si el PMT es correcto.
-                // Como PMT usa valorResidual como FV, saldoBien debería terminar en valorResidual.
-            }
             if (saldoBien < 0) saldoBien = 0;
             if (saldoSeguro < 0) saldoSeguro = 0;
 
@@ -247,6 +263,7 @@ export default function CotizadorView() {
 
             tablaData.push({
                 periodo: i,
+                fecha: fechaStr,
                 saldoInicial: (saldoBien + capitalBien) + (saldoSeguro + capitalSeguro),
                 renta: rentaMensualSinIva,
                 interes: interesBien + interesSeguro,
@@ -429,42 +446,48 @@ export default function CotizadorView() {
     const lightBg = [248, 249, 252]; // #f8f9fc
 
     const margin = 20;
-    let yPos = 20;
     const pageWidth = doc.internal.pageSize.getWidth();
     const contentWidth = pageWidth - (margin * 2);
 
     // Helper functions
     const formatoPorcentaje = (v) => v.toFixed(2) + '%';
+
+    // Load Image for Aspect Ratio
+    const img = new Image();
+    img.src = logo;
     
-    // --- Header ---
-    // Logo placeholder (Blue square with text)
-    doc.setFillColor(...primaryColor);
-    doc.roundedRect(margin, yPos, 12, 12, 2, 2, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'bold');
-    doc.text('CRM', margin + 6, yPos + 8, { align: 'center' });
+    img.onload = () => {
+        let yPos = 20;
+        
+        // --- Header ---
+        // Logo with aspect ratio
+        try {
+            const logoWidth = 35;
+            const logoHeight = (img.height * logoWidth) / img.width;
+            doc.addImage(img, 'PNG', margin, yPos, logoWidth, logoHeight);
+            
+            // Adjust yPos based on logo height if necessary, but we usually have space
+        } catch (e) {
+            console.error("Error cargando logo", e);
+        }
 
-    // Company Name
-    doc.setTextColor(...darkText);
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text('SOFIMAS', margin + 18, yPos + 5);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(...lightText);
-    doc.text('Soluciones Financieras', margin + 18, yPos + 10);
+        // Title (Right Aligned)
+        doc.setTextColor(...primaryColor);
+        doc.setFontSize(16); // Reduced slightly to fit
+        doc.setFont(undefined, 'bold');
+        const title = resultado.tipo === 'arrendamiento_puro' ? 'Cotización de Arrendamiento' : 'Tabla de Amortización';
+        doc.text(title, pageWidth - margin, yPos + 8, { align: 'right' });
 
-    // Title
-    doc.setFontSize(18);
-    doc.setTextColor(...primaryColor);
-    doc.setFont(undefined, 'bold');
-    doc.text('Tabla de Amortización', pageWidth - margin, yPos + 8, { align: 'right' });
+        // Company Name (Right Aligned, Below Title)
+        doc.setTextColor(...darkText);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('SOFIMAS Consultores del Noroeste', pageWidth - margin, yPos + 14, { align: 'right' });
 
-    yPos += 25;
+        yPos += 25;
 
-    // --- Info Cards ---
-    const drawCard = (x, y, w, h, title, data) => {
+        // --- Info Cards ---
+    const drawCard = (x, y, w, h, title, data, columns = 1) => {
         // Card Background
         doc.setFillColor(255, 255, 255);
         doc.setDrawColor(226, 232, 240); // slate-200
@@ -485,68 +508,161 @@ export default function CotizadorView() {
         doc.text(title, x + 5, y + 7);
 
         // Data
-        let currentY = y + 16;
+        const startY = y + 16;
+        const colWidth = w / columns;
+        const itemsPerCol = Math.ceil(data.length / columns);
+        
         doc.setFontSize(8);
-        data.forEach(item => {
+        data.forEach((item, i) => {
+            const colIndex = Math.floor(i / itemsPerCol);
+            const rowIndex = i % itemsPerCol;
+            
+            const currentX = x + (colIndex * colWidth);
+            const currentY = startY + (rowIndex * 6);
+
             doc.setTextColor(...lightText);
             doc.setFont(undefined, 'normal');
-            doc.text(item.label, x + 5, currentY);
+            doc.text(item.label, currentX + 5, currentY);
             
             doc.setTextColor(...darkText);
             doc.setFont(undefined, 'bold');
-            doc.text(String(item.value), x + w - 5, currentY, { align: 'right' });
-            
-            currentY += 6;
+            doc.text(String(item.value), currentX + colWidth - 5, currentY, { align: 'right' });
         });
     };
 
     // Calculate dimensions
     const cardWidth = (contentWidth - 10) / 2;
-    const leftCardH = 50; 
-    const rightCardH = 50;
-
+    let clientCardH = 30;
+    let conditionsCardH = 50; // Ajustado para 2 columnas (era 90)
+    
     // Data Preparation
-    const clientData = [
-        { label: 'Cliente', value: resultado.nombre },
-        { label: 'RFC', value: resultado.rfc },
-        { label: 'Monto Crédito', value: formatoMoneda(resultado.monto) },
-        { label: 'Comisión Apertura', value: formatoPorcentaje(extraerNumero(formData.comision)) + ' + IVA' },
-        { label: 'Disposición', value: formatoMoneda(resultado.monto) },
-    ];
+    let clientData = [];
+    let creditData = [];
+    let tableData = [];
+    let tableHeaders = [];
+    let titleClient = "Detalles del Cliente";
+    let titleConditions = "Condiciones del Crédito";
 
-    const creditData = [
-        { label: 'Fecha Inicio', value: resultado.fechaInicial },
-        { label: 'Tasa Anual', value: formatoPorcentaje(resultado.tasaAnual) },
-        { label: 'Plazo', value: `${resultado.plazo} meses` },
-        { label: 'CAT Estimado', value: formatoPorcentaje(resultado.catAnual) },
-        { label: 'Periodo Pago', value: 'Día 20' },
-    ];
+    if (resultado.tipo === 'arrendamiento_puro') {
+        clientData = [
+            { label: 'Cliente', value: resultado.nombre },
+            { label: 'RFC', value: resultado.rfc },
+        ];
 
-    drawCard(margin, yPos, cardWidth, leftCardH, "Detalles del Cliente", clientData);
-    drawCard(margin + cardWidth + 10, yPos, cardWidth, rightCardH, "Condiciones del Crédito", creditData);
+        creditData = [
+            { label: 'Tipo de Crédito', value: 'Arrendamiento Puro' },
+            { label: 'Plazo', value: `${resultado.plazo} meses` },
+            { label: 'Valor del Bien (Con IVA)', value: formatoMoneda(resultado.valorBienConIva) },
+            { label: 'Precio de la Unidad (Sin IVA)', value: formatoMoneda(resultado.valorBienConIva / 1.16) },
+            { label: 'Seguro', value: formData.tipoSeguro === 'financiado' ? formatoMoneda(extraerNumero(formData.costoSeguro)) : 'Contado' },
+            { label: 'Monto a Financiar', value: formatoMoneda(resultado.tablaData[0].saldoFinal) }, // Saldo Inicial del Arrendamiento
+            { label: 'Comisión por Apertura', value: formatoMoneda(resultado.comisionApertura) },
+            { label: 'Gastos de Registro', value: formatoMoneda(resultado.gastosRegistro) },
+            { label: 'Renta Extraordinaria', value: formatoMoneda(resultado.montoAnticipo) },
+            { label: 'Pago Total Inicial', value: formatoMoneda(resultado.pagoInicial) },
+        ];
+        
+        // Define headers for Lease
+        tableHeaders = [['No.', 'Fecha de Pago', 'Pago Mensual', 'Seguro', 'IVA', 'Pago Total']];
 
-    yPos += leftCardH + 15;
+
+        // Map data for Lease
+        tableData = resultado.tablaData.map(row => {
+            if (row.periodo === 0) {
+                 return [
+                    row.periodo, 
+                    row.fecha, // Now we have fecha
+                    '-', 
+                    '-', 
+                    '-', 
+                    formatoMoneda(row.total) // Pago Inicial
+                 ];
+            }
+            
+            // Calculate aggregations for the row
+            // Pago Mensual (Capital + intereses de capital)
+            const pagoMensualBien = (row.capitalBien || 0) + (row.interesBien || 0);
+            
+            // Seguro (Seguro + intereses seguro)
+            const pagoSeguroTotal = (row.capitalSeguro || 0) + (row.interesSeguro || 0);
+
+            // IVA (iva total)
+            const ivaTotal = (row.ivaBien || 0) + (row.ivaSeguro || 0);
+            
+            // Pago Total (Todo sumado)
+            const pagoFinal = row.total;
+
+            return [
+                row.periodo,
+                row.fecha,
+                formatoMoneda(pagoMensualBien),
+                formatoMoneda(pagoSeguroTotal),
+                formatoMoneda(ivaTotal),
+                formatoMoneda(pagoFinal)
+            ];
+        });
+
+    } else {
+        // Credito Simple (Default)
+        clientData = [
+            { label: 'Cliente', value: resultado.nombre },
+            { label: 'RFC', value: resultado.rfc },
+            { label: 'Monto Crédito', value: formatoMoneda(resultado.monto) },
+            { label: 'Comisión Apertura', value: formatoPorcentaje(extraerNumero(formData.comision)) + ' + IVA' },
+            { label: 'Disposición', value: formatoMoneda(resultado.monto) },
+        ];
+
+        creditData = [
+            { label: 'Fecha Inicio', value: resultado.fechaInicial },
+            { label: 'Tasa Anual', value: formatoPorcentaje(resultado.tasaAnual) },
+            { label: 'Plazo', value: `${resultado.plazo} meses` },
+            { label: 'CAT Estimado', value: formatoPorcentaje(resultado.catAnual) },
+            { label: 'Periodo Pago', value: 'Día 20' },
+        ];
+
+        tableHeaders = [['No.', 'Fecha', 'Comisión', 'Saldo', 'Capital', 'Pago Total', 'Interés']];
+
+        tableData = resultado.tablaData.map(row => {
+            let comision = row.periodo === 0 ? formatoMoneda(row.comision) : '-';
+            let interes = row.periodo === 0 ? '-' : formatoMoneda(row.interes);
+            let capital = row.periodo === 0 ? '-' : formatoMoneda(row.capital);
+            let pago = row.periodo === 0 ? formatoMoneda(row.comision) : formatoMoneda(row.pago);
+            return [row.periodo, row.fecha, comision, formatoMoneda(row.saldo), capital, pago, interes];
+        });
+        
+        // Add Totals Row only for Credit Simple here, or generic below?
+        // simple credit logic added totals inside tableData previously.
+        tableData.push(['Total', '-', formatoMoneda(resultado.totalComision), '-', formatoMoneda(resultado.totalCapital), formatoMoneda(resultado.totalCapital + resultado.totalInteres), formatoMoneda(resultado.totalInteres)]);
+    }
+
+    if (resultado.tipo === 'arrendamiento_puro') {
+        // Layout: Stacked (Conditions below Client)
+        drawCard(margin, yPos, contentWidth, clientCardH, titleClient, clientData);
+        yPos += clientCardH + 4;
+        // Two columns for Conditions
+        drawCard(margin, yPos, contentWidth, conditionsCardH, titleConditions, creditData, 2);
+        yPos += conditionsCardH + 5;
+    } else {
+        // Standard Layout
+        drawCard(margin, yPos, cardWidth, 50, titleClient, clientData);
+        drawCard(margin + cardWidth + 10, yPos, cardWidth, 50, titleConditions, creditData);
+        yPos += 50 + 5;
+    }
+
 
     // --- Table ---
-    const tableData = resultado.tablaData.map(row => {
-        let comision = row.periodo === 0 ? formatoMoneda(row.comision) : '-';
-        let interes = row.periodo === 0 ? '-' : formatoMoneda(row.interes);
-        let capital = row.periodo === 0 ? '-' : formatoMoneda(row.capital);
-        let pago = row.periodo === 0 ? formatoMoneda(row.comision) : formatoMoneda(row.pago);
-        return [row.periodo, row.fecha, comision, formatoMoneda(row.saldo), capital, pago, interes];
-    });
-
-    // Add Totals Row
-    tableData.push(['Total', '-', formatoMoneda(resultado.totalComision), '-', formatoMoneda(resultado.totalCapital), formatoMoneda(resultado.totalCapital + resultado.totalInteres), formatoMoneda(resultado.totalInteres)]);
+    // (Table generation moved above to support branching)
 
     doc.autoTable({
         startY: yPos,
-        head: [['No.', 'Fecha', 'Comisión', 'Saldo', 'Capital', 'Pago Total', 'Interés']],
+        margin: { left: margin, right: margin },
+        tableWidth: contentWidth,
+        head: tableHeaders,
         body: tableData,
         theme: 'plain', // Use plain and style manually for cleaner look
         styles: {
-            fontSize: 8,
-            cellPadding: 3,
+            fontSize: 7, // Compacted per request
+            cellPadding: 2, // Compacted per request
             textColor: darkText,
             font: 'helvetica', // closest to standard sans
             lineColor: [226, 232, 240],
@@ -557,10 +673,11 @@ export default function CotizadorView() {
             textColor: 255,
             fontStyle: 'bold',
             halign: 'center',
-            cellPadding: 4,
+            cellPadding: 3,
+            fontSize: 7
         },
         bodyStyles: {
-            halign: 'right',
+            halign: 'center',
         },
         columnStyles: {
             0: { halign: 'center' }, // No.
@@ -590,11 +707,12 @@ export default function CotizadorView() {
     
     const notas = [
         'NOTAS IMPORTANTES:',
-        '• Este documento es de carácter informativo y no representa una obligación legal hasta la firma del contrato.',
-        '• Los intereses se han calculado sin IVA (Exento para Personas Morales/Físicas con Actividad Empresarial).',
-        '• A la comisión por apertura se le debe agregar el 16% de IVA.',
-        '• Incumplir tus obligaciones te puede generar comisiones e intereses moratorios.',
-        '• Contratar créditos que excedan tu capacidad de pago afecta tu historial crediticio.'
+        '• La presente cotización es de carácter informativo. Los cálculos podrán variar al momento de formalizar el financiamiento.',
+        '• Seguro, placas, tenencia y cualquier otro gasto son tramitados por SOFIMAS y cubiertos por el cliente.',
+        '• Planes sujetos a autorización de crédito.',
+        '• Los plazos van de 12 a 48 meses.',
+        '• Todas las cantidades expresadas en esta cotización se encuentran en moneda nacional.',
+        'Vigencia: La presente cotización tendra una vigencia de 30 dias naturales a partir de la fecha de generación de la cotización.'
     ];
 
     let noteY = yPos + 5;
@@ -605,13 +723,24 @@ export default function CotizadorView() {
     });
 
     // Bottom Branding
+    const pageCount = doc.internal.getNumberOfPages();
     const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text('Generado por CRM Admin System - SOFIMAS', margin, pageHeight - 10);
-    doc.text('Página 1 de 1', pageWidth - margin, pageHeight - 10, { align: 'right' });
+
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text('Generado por SOFIMAS Consultores del Noroeste S.A. de C.V., SOFOM ENR', margin, pageHeight - 10);
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+    }
 
     doc.save('Cotizacion_CRM.pdf');
+    }; // End onload
+
+    img.onerror = () => {
+         // Fallback if image fails (same logic without image or default header)
+         alert("Error cargando el logo para el PDF.");
+    };
   };
 
   return (
@@ -770,14 +899,18 @@ export default function CotizadorView() {
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
               <h3 className="font-bold text-[#0d121b] dark:text-white">Tabla de Amortización (Arrendamiento)</h3>
+              <button onClick={generarPDF} className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                  <Download size={14} /> Descargar PDF
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-white uppercase bg-[#135bec]">
                   <tr>
                     <th className="px-4 py-3 text-center">No.</th>
+                    <th className="px-4 py-3 text-center">Fecha</th>
                     <th className="px-4 py-3 text-right">Capital</th>
                     <th className="px-4 py-3 text-right">Intereses Capital</th>
                     <th className="px-4 py-3 text-right">IVA de Intereses</th>
@@ -792,6 +925,7 @@ export default function CotizadorView() {
                   {resultado.tablaData.map((row) => (
                     <tr key={row.periodo} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="px-4 py-3 text-center font-medium">{row.periodo}</td>
+                      <td className="px-4 py-3 text-center text-slate-500 dark:text-slate-400">{row.fecha}</td>
                       <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatoMoneda(row.capitalBien)}</td>
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatoMoneda(row.interesBien)}</td>
                       <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatoMoneda(row.ivaBien)}</td>
