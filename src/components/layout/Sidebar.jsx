@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart } from 'lucide-react';
 import NavItem from './NavItem';
+import logo from '../../assets/sofimas-logo.png';
 
 export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, toggleMobileMenu }) {
   const menuItems = [
@@ -31,11 +32,8 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
         
         {/* Logo Section */}
         <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-[#135bec] p-2 rounded-lg">
-              <span className="font-bold text-xl tracking-tighter">CRM</span>
-            </div>
-            <span className="font-display text-xl font-bold tracking-wide">S-core</span>
+          <div className="flex items-center justify-center mb-8">
+            <img src={logo} alt="Sofimas Logo" className="w-4/5 h-auto object-contain" />
           </div>
 
           {/* Navigation */}

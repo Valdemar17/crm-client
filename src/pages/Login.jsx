@@ -3,6 +3,7 @@ import {
   ChevronLeft, Database, Mail, Eye, EyeOff, LogIn, ScanFace, 
   Moon, Sun 
 } from 'lucide-react';
+import logo from '../assets/sofimas-logo.png';
 
 export default function Login({ isDarkMode, toggleTheme, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -50,9 +51,11 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
         <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl overflow-hidden p-8 border border-slate-200 dark:border-slate-800 transition-colors duration-300">
           {/* Branding Logo */}
           <div className="flex justify-center mb-8">
-            <div className="w-16 h-16 bg-[#135bec] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#135bec]/30 transition-transform hover:scale-105 duration-300">
-              <Database size={32} />
-            </div>
+            <img 
+              src={logo} 
+              alt="Sofimas Logo" 
+              className="h-32 w-auto object-contain transition-transform hover:scale-105 duration-300" 
+            />
           </div>
 
           {/* Headline */}
