@@ -8,6 +8,8 @@ import CotizadorView from './features/cotizador/CotizadorView';
 import AccountingView from './features/accounting/AccountingView';
 import ReportsView from './features/reports/ReportsView';
 import CalendarView from './features/calendar/CalendarView';
+import CreditoView from './features/credito/CreditoView';
+import SettingsView from './features/settings/SettingsView';
 
 function App() {
   // Global State
@@ -35,9 +37,11 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardOverview />;
+        return <DashboardOverview onNavigate={setActiveTab} />;
       case 'clients':
         return <ClientsView />;
+      case 'credito':
+        return <CreditoView />;
       case 'pld':
         return <PLDView />;
       case 'cotizador':
@@ -48,8 +52,10 @@ function App() {
         return <ReportsView />;
       case 'calendar':
         return <CalendarView />;
+      case 'settings':
+        return <SettingsView />;
       default:
-        return <DashboardOverview />;
+        return <DashboardOverview onNavigate={setActiveTab} />;
     }
   };
 

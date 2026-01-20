@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar, CreditCard } from 'lucide-react';
 import NavItem from './NavItem';
 import logo from '../../assets/sofimas-logo.png';
 
@@ -7,6 +7,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clients', label: 'Clientes', icon: Users },
+    { id: 'credito', label: 'Crédito', icon: CreditCard },
     { id: 'pld', label: 'Módulo PLD', icon: ShieldAlert },
     { id: 'cotizador', label: 'Cotizador', icon: FileText },
     { id: 'accounting', label: 'Contabilidad', icon: Calculator },
@@ -72,7 +73,14 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
             </div>
           </div>
           
-          <button className="flex items-center gap-3 px-4 py-2 w-full text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+          <button 
+            onClick={() => onTabChange('settings')}
+            className={`flex items-center gap-3 px-4 py-2 w-full rounded-lg transition-colors ${
+              activeTab === 'settings' 
+                ? 'bg-blue-600/10 text-blue-500' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
              <Settings size={20} />
              <span>Configuración</span>
           </button>

@@ -1,34 +1,73 @@
 import React from 'react';
 import { 
-  Briefcase, Users, PieChart, LayoutDashboard, ArrowUpRight, ArrowDownRight, MoreHorizontal 
+  Briefcase, Users, FileText, ShieldAlert, 
+  ArrowUpRight, ArrowDownRight, Calendar, Plus, CreditCard 
 } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 
-export default function DashboardOverview() {
+export default function DashboardOverview({ onNavigate }) {
   const stats = [
-    { title: 'Ingresos Totales', value: '$54,239', trend: '+12.5%', isPositive: true, icon: <Briefcase size={24} /> },
-    { title: 'Nuevos Usuarios', value: '2,543', trend: '+8.2%', isPositive: true, icon: <Users size={24} /> },
-    { title: 'Tasa de Rebote', value: '42.3%', trend: '-2.1%', isPositive: true, icon: <PieChart size={24} /> },
-    { title: 'Sesiones Activas', value: '432', trend: '-5.4%', isPositive: false, icon: <LayoutDashboard size={24} /> },
+    { 
+      title: 'Cartera Vigente', 
+      value: '$45,231,000', 
+      trend: '+2.5%', 
+      isPositive: true, 
+      icon: <Briefcase size={24} />,
+      action: () => onNavigate('credito')
+    },
+    { 
+      title: 'Solicitudes en Trámite', 
+      value: '12', 
+      trend: '+4', 
+      isPositive: true, 
+      icon: <FileText size={24} />,
+      action: () => onNavigate('credito')
+    },
+    { 
+      title: 'Alertas PLD', 
+      value: '0', 
+      trend: 'Sin Riesgo', 
+      isPositive: true, 
+      icon: <ShieldAlert size={24} />,
+      action: () => onNavigate('pld')
+    },
+    { 
+      title: 'Clientes Activos', 
+      value: '148', 
+      trend: '+12.3%', 
+      isPositive: true, 
+      icon: <Users size={24} />,
+      action: () => onNavigate('clients')
+    },
   ];
 
-  const recentLeads = [
-    { name: 'Alice Freeman', company: 'TechFlow Inc.', status: 'Calificado', date: 'Justo ahora', email: 'alice@techflow.com' },
-    { name: 'Robert Smith', company: 'Global Solutions', status: 'Nuevo', date: 'Hace 2 min', email: 'r.smith@global.com' },
-    { name: 'Michael Brown', company: 'Creative Studio', status: 'Negociación', date: 'Hace 1 hora', email: 'mike@studio.io' },
-    { name: 'Sarah Wilson', company: 'Marketing Pro', status: 'Calificado', date: 'Hace 3 horas', email: 'sarah@mpro.net' },
+  const recentRequests = [
+    { client: 'GC Grupo Cimarrón S.A de C.V', amount: '$1,000,000', type: 'Quirografario', status: 'En Comité', date: '19 Ene 2026' },
+    { client: 'Transportes del Norte', amount: '$3,500,000', type: 'Arrendamiento', status: 'Análisis', date: '18 Ene 2026' },
+    { client: 'Juan Alberto Pérez', amount: '$500,000', type: 'Refaccionario', status: 'Documentación', date: '15 Ene 2026' },
+    { client: 'Inmobiliaria Sol Poniente', amount: '$12,000,000', type: 'Garantía Hip.', status: 'Jurídico', date: '14 Ene 2026' },
+  ];
+
+  const upcomingEvents = [
+    { title: 'Comité de Crédito Ord.', time: '12:00 PM', date: 'Hoy', type: 'committee' },
+    { title: 'Firma de Contrato (Grupo Cimarrón)', time: '04:30 PM', date: 'Mañana', type: 'meeting' },
+    { title: 'Revisión Auditores PLD', time: '09:00 AM', date: '22 Ene', type: 'audit' },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8 pb-10">
       <div>
-        <h1 className="text-2xl font-bold text-[#0d121b] dark:text-white">Resumen del Panel</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">Bienvenido de nuevo, esto es lo que está pasando hoy.</p>
+        <h1 className="text-2xl font-bold text-[#0d121b] dark:text-white">Panel Principal</h1>
+        <p className="text-slate-500 dark:text-slate-400 mt-1">Visión general operativa al 19 de enero de 2026.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-[#135bec]/30 transition-all duration-300 group">
+          <div 
+            key={index} 
+            onClick={stat.action}
+            className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-[#135bec]/30 transition-all duration-300 group cursor-pointer"
+          >
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 bg-blue-50 dark:bg-slate-800 rounded-lg text-[#135bec] group-hover:scale-110 transition-transform">
                 {stat.icon}
@@ -45,43 +84,50 @@ export default function DashboardOverview() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Column: Solicitudes Recientes */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <h3 className="font-bold text-lg">Prospectos Recientes</h3>
-            <button className="text-sm text-[#135bec] font-semibold hover:underline">Ver Todos</button>
+            <h3 className="font-bold text-lg text-[#0d121b] dark:text-white">Solicitudes de Crédito Recientes</h3>
+            <button 
+              onClick={() => onNavigate('credito')}
+              className="text-sm text-[#135bec] font-semibold hover:underline"
+            >
+              Ver Pipeline Completo
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Nombre</th>
-                  <th className="px-6 py-4 font-semibold">Estado</th>
-                  <th className="px-6 py-4 font-semibold">Empresa</th>
-                  <th className="px-6 py-4 font-semibold text-right">Acción</th>
+                  <th className="px-6 py-4 font-semibold">Cliente</th>
+                  <th className="px-6 py-4 font-semibold">Monto / Tipo</th>
+                  <th className="px-6 py-4 font-semibold">Fecha</th>
+                  <th className="px-6 py-4 font-semibold text-right">Etapa</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {recentLeads.map((lead, idx) => (
+                {recentRequests.map((req, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4 font-medium">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold">
-                          {lead.name.charAt(0)}
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 flex items-center justify-center text-xs font-bold">
+                          {req.client.charAt(0)}
                         </div>
-                        <div>
-                          <div className="text-[#0d121b] dark:text-white">{lead.name}</div>
-                          <div className="text-slate-400 text-xs">{lead.email}</div>
-                        </div>
+                        <span className="text-[#0d121b] dark:text-white">{req.client}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={lead.status} />
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
+                      <div className="font-medium text-[#0d121b] dark:text-white">{req.amount}</div>
+                      <div className="text-xs">{req.type}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{lead.company}</td>
+                    <td className="px-6 py-4 text-slate-500">{req.date}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-slate-400 hover:text-[#135bec]">
-                        <MoreHorizontal size={20} />
-                      </button>
+                       <span className={`inline-flex px-2 py-1 text-xs font-semibold leading-5 rounded-full 
+                        ${req.status === 'En Comité' ? 'bg-purple-100 text-purple-800' : 
+                          req.status === 'Jurídico' ? 'bg-yellow-100 text-yellow-800' :
+                          req.status === 'Análisis' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'}`}>
+                          {req.status}
+                       </span>
                     </td>
                   </tr>
                 ))}
@@ -90,37 +136,69 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-          <h3 className="font-bold text-lg mb-4">Fuente de Tráfico</h3>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">Directo</span>
-                <span className="text-slate-500">54%</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-[#135bec] w-[54%] rounded-full"></div>
-              </div>
+        {/* Right Column: Widgets */}
+        <div className="space-y-6">
+            
+            {/* Accesos Rápidos */}
+            <div className="bg-gradient-to-br from-[#135bec] to-blue-600 rounded-xl p-6 text-white shadow-lg shadow-blue-500/20">
+                <h3 className="font-bold mb-4 flex items-center"><CreditCard size={20} className="mr-2"/> Acciones Rápidas</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => onNavigate('credito')}
+                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
+                    >
+                        Nueva Solicitud
+                    </button>
+                    <button 
+                      onClick={() => onNavigate('cotizador')}
+                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
+                    >
+                        Simular Crédito
+                    </button>
+                    <button 
+                      onClick={() => onNavigate('clients')}
+                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
+                    >
+                        Consulta Buró
+                    </button>
+                    <button 
+                      onClick={() => onNavigate('calendar')}
+                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
+                    >
+                        Ver Agenda
+                    </button>
+                </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">Redes Sociales</span>
-                <span className="text-slate-500">28%</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500 w-[28%] rounded-full"></div>
-              </div>
+
+            {/* Agenda */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-[#0d121b] dark:text-white">Agenda Semanal</h3>
+                    <Calendar size={18} className="text-slate-400"/>
+                </div>
+                <div className="space-y-4">
+                    {upcomingEvents.map((event, idx) => (
+                        <div key={idx} className="flex gap-4 items-start">
+                            <div className="flex flex-col items-center min-w-[3rem]">
+                                <span className="text-xs font-bold text-slate-500 uppercase">{event.date}</span>
+                            </div>
+                            <div className={`flex-1 p-3 rounded-lg border text-sm ${
+                                event.type === 'committee' ? 'bg-purple-50 border-purple-100' : 'bg-slate-50 border-slate-100'
+                            }`}>
+                                <p className="font-bold text-slate-800">{event.title}</p>
+                                <p className="text-slate-500 mt-1">{event.time}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                 <button 
+                  onClick={() => onNavigate('calendar')}
+                  className="w-full mt-4 text-blue-600 text-sm font-medium hover:underline text-center"
+                 >
+                    Ver Calendario Completo
+                 </button>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">Referidos</span>
-                <span className="text-slate-500">18%</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-teal-400 w-[18%] rounded-full"></div>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

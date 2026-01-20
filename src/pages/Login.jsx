@@ -125,18 +125,8 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
               Iniciar Sesión
               <LogIn size={20} />
             </button>
-          </form>
 
-          <div className="mt-8 flex flex-col items-center">
-            <div className="relative w-full flex items-center py-5">
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
-              <span className="flex-shrink mx-4 text-slate-400 text-xs uppercase tracking-widest">o acceso rápido</span>
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
-            </div>
-            <button className="p-3 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-[#135bec] dark:hover:border-[#135bec] group transition-all duration-300">
-              <ScanFace size={32} className="text-[#135bec] group-hover:scale-110 transition-transform duration-300" />
-            </button>
-          </div>
+          </form>
         </div>
       </div>
        {/* Footer */}
