@@ -52,7 +52,19 @@ const INITIAL_MINUTES = [
         destination: "Capital de Trabajo",
         guarantor: "Corporativo Operador De Empresas S.C",
         notes: "Solicitud de capital de trabajo por 1 mdp tipo bullet.",
-        status: "Aprobado"
+        status: "Aprobado",
+        // Nuevos campos para Presentación
+        riskAnalysis: {
+          strengths: "Solidez financiera del grupo, historial de pagos impecable, amplia experiencia en el sector.",
+          weaknesses: "Alta concentración de deuda a corto plazo.",
+          mitigation: "Respaldo de Corporativo Operador De Empresas S.C. y flujos proyectados positivos."
+        },
+        financialProfile: {
+          income: "$45M Anuales",
+          profitability: "12% Margen Neto",
+          cashFlow: "Positivo y estable"
+        },
+        conclusion: "Se recomienda la aprobación considerando la fortaleza del garante y el historial del cliente."
       },
       {
         id: "REQ-002",
@@ -122,12 +134,14 @@ const handleGenerateSlide = (req) => {
     const doc = new jsPDF({ orientation: 'landscape', format: 'letter' });
     const width = doc.internal.pageSize.getWidth();
     const height = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 12;
     
     // Colors
     const primaryBlue = [26, 69, 128]; 
     const secondaryBlue = [19, 91, 236];
     const lightBg = [245, 247, 250];
+    const sectionBg = [250, 250, 250];
+    const accentColor = [234, 179, 8]; // Amber
 
     // Background Layout
     doc.setFillColor(255, 255, 255);
@@ -135,7 +149,7 @@ const handleGenerateSlide = (req) => {
     
     // Header Bar
     doc.setFillColor(...primaryBlue);
-    doc.rect(0, 0, width, 25, 'F');
+    doc.rect(0, 0, width, 22, 'F');
     
     // Logo (Simulated or Loaded)
     const img = new Image();
@@ -144,99 +158,149 @@ const handleGenerateSlide = (req) => {
     const renderContent = () => {
          // Title Header Text
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
-        doc.setFont(undefined, 'bold');
-        doc.text("Presentación de Caso - Comité de Crédito", width - margin, 17, { align: 'right' });
-        
-        // Client Title Card
-        doc.setFillColor(...lightBg);
-        doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(margin, 35, width - (margin * 2), 25, 3, 3, 'FD');
-        
-        doc.setTextColor(...primaryBlue);
         doc.setFontSize(16);
-        doc.text((req.client || 'Cliente Sin Nombre').toUpperCase(), margin + 10, 52);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Propuesta de Crédito: ${(req.client || '').substring(0, 40)}...`, width - margin, 14, { align: 'right' });
         
-        // Stats badges inside Title Card
-        doc.setFontSize(12);
-        doc.setTextColor(50, 50, 50);
-        const amountStr = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(req.amount || 0);
-        doc.text(`Monto: ${amountStr}`, width - margin - 10, 52, { align: 'right' });
-
-        // Main Grid
-        const col1X = margin;
-        const col1W = (width - (margin * 3)) * 0.4;
-        const col2X = col1X + col1W + margin;
-        const col2W = (width - (margin * 3)) * 0.6;
-        const startY = 70;
-        
-        // Function to draw a field box
-        const drawField = (label, value, x, y, w) => {
-            doc.setFontSize(9);
-            doc.setTextColor(100, 100, 100);
-            doc.text(label.toUpperCase(), x, y);
+        // Helper: Section Box
+        const drawSection = (x, y, w, h, title) => {
+            doc.setFillColor(...sectionBg);
+            doc.setDrawColor(220, 220, 220);
+            doc.roundedRect(x, y, w, h, 2, 2, 'FD');
             
             doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
+            doc.setTextColor(...primaryBlue);
             doc.setFont(undefined, 'bold');
+            doc.text(title.toUpperCase(), x + 4, y + 6);
             
-            const splitVal = doc.splitTextToSize(String(value || 'N/A'), w);
-            doc.text(splitVal, x, y + 6);
-            
-            return y + 15 + (splitVal.length * 4);
+            // Underline
+            doc.setDrawColor(...secondaryBlue);
+            doc.setLineWidth(0.5);
+            doc.line(x + 4, y + 8, x + w - 4, y + 8);
         };
 
-        // --- Left Column: Financials ---
-        let currentY = startY;
+        // Helper: Field
+        const drawField = (label, value, x, y, w) => {
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.setFont(undefined, 'normal');
+            doc.text(label, x, y);
+            
+            doc.setFontSize(10);
+            doc.setTextColor(40, 40, 40);
+            doc.setFont(undefined, 'bold');
+            const splitVal = doc.splitTextToSize(String(value || '-'), w);
+            doc.text(splitVal, x, y + 4.5);
+            return splitVal.length * 4.5 + 4; // Return height used
+        };
+
+        const colWidth = (width - (margin * 3)) / 2;
+        const row1Y = 30;
+        const row1H = 60;
+        const row2Y = 95;
+        const row2H = 70;
+        const row3Y = 170;
+        const row3H = 30;
+
+        // --- 1. RESUMEN EJECUTIVO (Top Left) ---
+        drawSection(margin, row1Y, colWidth, row1H, "1. Resumen Ejecutivo");
+        let cy = row1Y + 14;
+        cy += drawField("Cliente:", req.client, margin + 5, cy, colWidth - 10) + 4;
+        const montStr = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(req.amount || 0);
+        cy += drawField("Monto Solicitado:", montStr, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Propósito:", req.destination, margin + 5, cy, colWidth - 10) + 4;
+        
+        doc.setFillColor(...(req.status === 'Aprobado' ? [220, 252, 231] : [254, 243, 199]));
+        doc.roundedRect(margin + 5, cy + 2, 30, 8, 1, 1, 'F');
+        doc.setTextColor(...(req.status === 'Aprobado' ? [22, 101, 52] : [180, 83, 9]));
+        doc.setFontSize(9);
+        doc.text(req.status || 'Pendiente', margin + 7, cy + 7);
+
+
+        // --- 2. ANÁLISIS DEL SOLICITANTE (Top Right) ---
+        drawSection(margin + colWidth + margin, row1Y, colWidth, row1H, "2. Análisis del Solicitante");
+        const cx2 = margin + colWidth + margin + 5;
+        let cy2 = row1Y + 14;
+        
+        // Mock Financial Data if not present
+        const finProfile = req.financialProfile || { income: "N/A", profitability: "N/A", cashFlow: "N/A" };
+        cy2 += drawField("Perfil Financiero (Ingresos):", finProfile.income, cx2, cy2, colWidth - 10) + 4;
+        cy2 += drawField("Rentabilidad:", finProfile.profitability, cx2, cy2, colWidth - 10) + 4;
+        cy2 += drawField("Flujo de Caja:", finProfile.cashFlow, cx2, cy2, colWidth - 10) + 4;
+        
+        // Placeholder Graph
+        doc.setFillColor(240, 240, 240);
+        doc.rect(cx2, cy2 + 2, 40, 20, 'F');
+        doc.setFontSize(7); doc.setTextColor(150,150,150);
+        doc.text("Gráfico Financiero", cx2 + 5, cy2 + 12);
         
         doc.setFillColor(240, 240, 240);
-        doc.roundedRect(col1X - 5, currentY - 10, col1W + 10, 120, 3, 3, 'F'); // Background box
-        
-        doc.setFontSize(12); doc.setTextColor(...secondaryBlue); doc.text("Condiciones Financieras", col1X, currentY);
-        currentY += 15;
+        doc.rect(cx2 + 45, cy2 + 2, 40, 20, 'F');
+        doc.text("Historial Cred.", cx2 + 50, cy2 + 12);
 
-        currentY = drawField("Producto / Modalidad", req.modality, col1X, currentY, col1W);
-        currentY = drawField("Plazo Solicitado", req.term, col1X, currentY, col1W);
-        currentY = drawField("Tasa Ordinaria", req.rate, col1X, currentY, col1W);
-        currentY = drawField("Comisión", req.commission, col1X, currentY, col1W);
-        currentY = drawField("Amortización", req.amortization, col1X, currentY, col1W);
+
+        // --- 3. TÉRMINOS PROPUESTOS (Bottom Left) ---
+        drawSection(margin, row2Y, colWidth, row2H, "3. Términos Propuestos");
+        cy = row2Y + 14;
+        cy += drawField("Monto:", montStr, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Tasa de Interés:", req.rate, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Plazo:", req.term, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Comisión:", req.commission, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Garantía / Aval:", req.guarantor, margin + 5, cy, colWidth - 10) + 4;
+        cy += drawField("Condiciones Especiales:", "Seguro cobertura amplia requerido.", margin + 5, cy, colWidth - 10) + 4;
+
+
+        // --- 4. EVALUACIÓN DE RIESGO (Bottom Right) ---
+        drawSection(margin + colWidth + margin, row2Y, colWidth, row2H, "4. Evaluación de Riesgo");
+        cy2 = row2Y + 14;
+        const risks = req.riskAnalysis || { strengths: "-", weaknesses: "-", mitigation: "-" };
         
-        // --- Right Column: Qualitative ---
-        currentY = startY;
+        doc.setTextColor(34, 197, 94); // Green
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.text("Fortalezas:", cx2, cy2);
+        doc.setTextColor(60, 60, 60); doc.setFont(undefined, 'normal');
+        const strSplit = doc.splitTextToSize(risks.strengths, colWidth - 10);
+        doc.text(strSplit, cx2, cy2 + 5);
+        cy2 += (strSplit.length * 4) + 10;
+
+        doc.setTextColor(239, 68, 68); // Red
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.text("Riesgos / Debilidades:", cx2, cy2);
+        doc.setTextColor(60, 60, 60); doc.setFont(undefined, 'normal');
+        const weakSplit = doc.splitTextToSize(risks.weaknesses, colWidth - 10);
+        doc.text(weakSplit, cx2, cy2 + 5);
+        cy2 += (weakSplit.length * 4) + 10;
         
-        doc.setFontSize(12); doc.setTextColor(...secondaryBlue); doc.text("Análisis y Destino", col2X, currentY);
-        currentY += 15;
+        doc.setTextColor(59, 130, 246); // Blue
+        doc.setFontSize(9); doc.setFont(undefined, 'bold'); doc.text("Mitigación:", cx2, cy2);
+        doc.setTextColor(60, 60, 60); doc.setFont(undefined, 'normal');
+        const mitSplit = doc.splitTextToSize(risks.mitigation, colWidth - 10);
+        doc.text(mitSplit, cx2, cy2 + 5);
+
+
+        // --- 5. CONCLUSIÓN (Footer) ---
+        drawSection(margin, row3Y, width - (margin * 2), row3H, "5. Conclusión y Próximos Pasos");
+        const conc = req.conclusion || `Se recomienda aprobación del crédito por ${montStr} bajo las condiciones descritas.`;
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(conc, margin + 5, row3Y + 14);
         
-        currentY = drawField("Destino de los Recursos", req.destination, col2X, currentY, col2W);
-        currentY = drawField("Garantías / Avales", req.guarantor, col2X, currentY, col2W);
-        currentY = drawField("Notas del Analista / Observaciones", req.notes, col2X, currentY, col2W);
+        doc.setFont(undefined, 'bold');
+        doc.text("Próximos Pasos: Formalización de Contrato -> Firma de Pagarés -> Desembolso", margin + 5, row3Y + 24);
+
+
+        // Footer Small
+        doc.setFontSize(7);
+        doc.setTextColor(180, 180, 180);
+        doc.text("SOFIMAS - Comité de Crédito - Confidencial", width / 2, height - 5, { align: 'center' });
         
-        // Resolution Stamp (if exists)
-        if (req.status) {
-            const stampColor = req.status === 'Aprobado' ? [34, 197, 94] : [234, 179, 8];
-            doc.setDrawColor(...stampColor);
-            doc.setLineWidth(1);
-            doc.rect(width - margin - 50, height - margin - 30, 40, 15, 'S');
-            
-            doc.setTextColor(...stampColor);
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.text(req.status.toUpperCase(), width - margin - 30, height - margin - 21, { align: 'center' });
-        }
-        
-        // Footer
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text("SOFIMAS - Documento Confidencial de Uso Interno", width / 2, height - 10, { align: 'center' });
-        
-        doc.save(`Presentacion_${req.client.replace(/\s+/g, '_')}.pdf`);
+        doc.save(`Presentacion_Comite_${req.client.substring(0,10)}.pdf`);
     };
 
     img.onload = () => {
          try {
-            const logoW = 40;
+            const logoW = 35;
             const logoH = (img.height * logoW) / img.width;
-            doc.addImage(img, 'PNG', margin, (25 - logoH) / 2, logoW, logoH);
+            doc.addImage(img, 'PNG', margin, (22 - logoH) / 2, logoW, logoH);
          } catch(e) {}
          renderContent();
     };

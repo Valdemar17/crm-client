@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { CreditCard, FileText, Gavel, FileCheck, Clock, CheckCircle } from 'lucide-react';
 import DictamenJuridico from './DictamenJuridico';
 import ComiteView from './ComiteView';
+import MesaControlView from './MesaControlView';
 
 export default function CreditoView() {
-  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, dictamen, comite
+  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, dictamen, comite, mesa
 
   if (currentView === 'dictamen') {
       return <DictamenJuridico onBack={() => setCurrentView('dashboard')} />;
@@ -12,6 +13,10 @@ export default function CreditoView() {
 
   if (currentView === 'comite') {
       return <ComiteView onBack={() => setCurrentView('dashboard')} />;
+  }
+
+  if (currentView === 'mesa') {
+      return <MesaControlView onBack={() => setCurrentView('dashboard')} />;
   }
 
   return (
@@ -101,8 +106,11 @@ export default function CreditoView() {
               </div>
           </div>
 
-           {/* Placeholder Action Card: Mesa de Control */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-indigo-300 transition-colors group cursor-pointer">
+           {/* Action Card: Mesa de Control */}
+          <div 
+             onClick={() => setCurrentView('mesa')}
+             className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-indigo-300 transition-colors group cursor-pointer"
+          >
               <div className="flex justify-between items-start mb-4">
                   <div className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                       <FileText size={32} />

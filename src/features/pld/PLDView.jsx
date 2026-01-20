@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, Activity, Search, List, User, Building2, Scale, 
-  FileCog, CheckSquare, Grid, ShieldAlert, Bell, Users, Sparkles, Loader2 
+  FileCog, CheckSquare, Grid, ShieldAlert, Bell, Users, Sparkles, Loader2,
+  FileText, Download, Eye, Plus
 } from 'lucide-react';
 import { generateGeminiContent } from '../../services/api';
 
@@ -47,6 +48,7 @@ export default function PLDView() {
     { id: 'procesos', label: 'Generar Procesos', icon: <FileCog size={18} /> },
     { id: 'pagos', label: 'Aprobación Pagos', icon: <CheckSquare size={18} /> },
     { id: 'matriz', label: 'Matriz de Riesgos', icon: <Grid size={18} /> },
+    { id: 'actas', label: 'Actas Oficial', icon: <FileText size={18} /> },
   ];
 
   const renderContent = () => {
@@ -241,6 +243,67 @@ export default function PLDView() {
             <Grid size={48} className="mx-auto text-slate-300 mb-4" />
             <h3 className="text-lg font-bold text-[#0d121b] dark:text-white">Matriz de Riesgos</h3>
             <p className="text-slate-500 mt-2">Mapa de calor y distribución de riesgos de la cartera.</p>
+          </div>
+        );
+      case 'actas':
+        return (
+          <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+            <div className="flex justify-between items-center">
+               <h3 className="text-lg font-bold text-[#0d121b] dark:text-white">Actas de Oficial de Cumplimiento</h3>
+               <button className="flex items-center gap-2 bg-[#135bec] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm active:scale-95">
+                  <Plus size={16} /> Nueva Acta
+               </button>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-xs uppercase text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                          <th className="px-6 py-4">ID Acta</th>
+                          <th className="px-6 py-4">Fecha</th>
+                          <th className="px-6 py-4">Tipo de Sesión</th>
+                          <th className="px-6 py-4">Resumen / Temas</th>
+                          <th className="px-6 py-4">Estado</th>
+                          <th className="px-6 py-4 text-right">Acciones</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {[
+                        { id: 'ACT-PLD-2024-001', date: '2024-01-15', type: 'Ordinaria Mensual', topics: 'Revisión de alertas enero, actualización manual', status: 'Finalizada' },
+                        { id: 'ACT-PLD-2024-002', date: '2024-02-14', type: 'Ordinaria Mensual', topics: 'Capacitación anual personal nuevo ingreso', status: 'Finalizada' },
+                        { id: 'ACT-PLD-2024-003', date: '2024-03-10', type: 'Extraordinaria', topics: 'Incidencia reporte inusual cliente X', status: 'En Revision' },
+                        { id: 'ACT-PLD-2024-004', date: '2024-04-12', type: 'Ordinaria Mensual', topics: 'Presentación de resultados trimestrales 1Q', status: 'Finalizada' },
+                      ].map(acta => (
+                          <tr key={acta.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                              <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{acta.id}</td>
+                              <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{acta.date}</td>
+                              <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{acta.type}</td>
+                              <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{acta.topics}</td>
+                              <td className="px-6 py-4">
+                                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                      acta.status === 'Finalizada' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                  }`}>
+                                      {acta.status}
+                                  </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                  <div className="flex justify-end gap-2">
+                                      <button title="Ver Detalle" className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                          <Eye size={18} />
+                                      </button>
+                                      <button title="Descargar PDF" className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                          <Download size={18} />
+                                      </button>
+                                  </div>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 text-center text-xs text-slate-500">
+                 Mostrando 4 de 12 registros históricos
+              </div>
+            </div>
           </div>
         );
       default:
