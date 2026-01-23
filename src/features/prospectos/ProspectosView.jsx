@@ -1,15 +1,51 @@
 import React, { useState } from 'react';
-import { UserPlus, Search, Filter, User, Building2, Phone, Mail, MapPin } from 'lucide-react';
+import { UserPlus, Search, Filter, User, Building2, Phone, Mail, MapPin, Calendar, MoreVertical, Edit, UserCheck, FileText } from 'lucide-react';
 import ChecklistModal from './components/ChecklistModal';
+import AddClientModal from '../clients/components/AddClientModal';
+import { generateChecklistPDF } from '../../utils/checklistPDF';
 
 const ProspectosView = () => {
   const [prospects, setProspects] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProspect, setEditingProspect] = useState(null);
+  const [convertingProspect, setConvertingProspect] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeMenu, setActiveMenu] = useState(null);
 
   const handleAddProspect = (newProspect) => {
-    setProspects([...prospects, { ...newProspect, id: Date.now(), status: "Nuevo" }]);
+    setProspects([...prospects, { 
+        ...newProspect, 
+        id: Date.now(), 
+        status: "Nuevo",
+        createdAt: new Date().toISOString()
+    }]);
     setShowAddModal(false);
+  };
+
+  const handleUpdateProspect = (updatedData) => {
+    setProspects(prospects.map(p => p.id === editingProspect.id ? { ...p, ...updatedData } : p));
+    setEditingProspect(null);
+  };
+
+  const handleConvertToClient = (prospect) => {
+    setActiveMenu(null);
+    setConvertingProspect(prospect);
+  };
+
+  const handleClientConversionSuccess = (clientData) => {
+      // Remove prospect from list
+      setProspects(prospects.filter(p => p.id !== convertingProspect.id));
+      setConvertingProspect(null);
+      
+      // Feedback user
+      alert("¡Prospecto convertido exitosamente! El cliente ha sido guardado y transferido al módulo de Clientes.");
+      // Note: In a real app with backend, here we would post to /clients endpoint
+      console.log("Client created:", clientData);
+  };
+
+  const handleDownloadChecklist = async (prospect) => {
+    setActiveMenu(null);
+    await generateChecklistPDF(prospect);
   };
 
   const filteredProspects = prospects.filter(p => 
@@ -71,12 +107,63 @@ const ProspectosView = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-800">{prospect.name}</h3>
-                    <span className="text-xs text-slate-500">{prospect.type}</span>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{prospect.type}</span>
+                        {prospect.createdAt && (
+                            <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                    <Calendar size={10} />
+                                    {new Date(prospect.createdAt).toLocaleDateString()}
+                                </span>
+                            </>
+                        )}
+                    </div>
                   </div>
                 </div>
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                  {prospect.status}
-                </span>
+                
+                <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        prospect.status === 'Cliente' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {prospect.status}
+                    </span>
+                    
+                    <div className="relative">
+                        <button 
+                            onClick={() => setActiveMenu(activeMenu === prospect.id ? null : prospect.id)}
+                            className="p-1 hover:bg-slate-100 rounded-full text-slate-400"
+                        >
+                            <MoreVertical size={16} />
+                        </button>
+                        
+                        {activeMenu === prospect.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-100 z-10 py-1">
+                                <button 
+                                    onClick={() => {
+                                        setEditingProspect(prospect);
+                                        setActiveMenu(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                    <Edit size={14} /> Editar
+                                </button>
+                                <button 
+                                    onClick={() => handleDownloadChecklist(prospect)}
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                >
+                                    <FileText size={14} /> Descargar Checklist
+                                </button>
+                                <button 
+                                    onClick={() => handleConvertToClient(prospect)}
+                                    className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2"
+                                >
+                                    <UserCheck size={14} /> Convertir a Cliente
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
               </div>
               
               <div className="space-y-2 text-sm text-slate-600">
@@ -100,12 +187,30 @@ const ProspectosView = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Add */}
       {showAddModal && (
         <ChecklistModal 
           onClose={() => setShowAddModal(false)}
           onSave={handleAddProspect}
         />
+      )}
+
+      {/* Modal Edit */}
+      {editingProspect && (
+        <ChecklistModal
+          initialData={editingProspect}
+          onClose={() => setEditingProspect(null)}
+          onSave={handleUpdateProspect}
+        />
+      )}
+
+      {/* Modal Convert to Client */}
+      {convertingProspect && (
+         <AddClientModal
+            initialData={convertingProspect}
+            onClose={() => setConvertingProspect(null)}
+            onSave={handleClientConversionSuccess}
+         />
       )}
     </div>
   );

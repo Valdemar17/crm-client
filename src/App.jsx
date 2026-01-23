@@ -73,6 +73,8 @@ function App() {
       onTabChange={setActiveTab}
       isMobileMenuOpen={isMobileMenuOpen}
       setIsMobileMenuOpen={setIsMobileMenuOpen}
+      darkMode={darkMode}
+      toggleDarkMode={() => setDarkMode(!darkMode)}
     >
       {renderContent()}
     </MainLayout>

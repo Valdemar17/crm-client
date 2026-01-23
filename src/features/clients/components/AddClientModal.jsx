@@ -1,10 +1,42 @@
 import React, { useState } from 'react';
 import { User, Building2, X, CheckCircle } from 'lucide-react';
 
-export default function AddClientModal({ onClose, onSave }) {
-  const [step, setStep] = useState(1);
-  const [clientType, setClientType] = useState(null); 
-  const [formData, setFormData] = useState({
+export default function AddClientModal({ onClose, onSave, initialData }) {
+  const [step, setStep] = useState(initialData?.type ? 2 : 1);
+  const [clientType, setClientType] = useState(initialData?.type === 'Moral' ? 'Moral' : (initialData?.type ? 'Física' : null)); 
+  
+  // Parse name if initialData exists
+  const getInitialFormData = () => {
+      const base = {
+          direccion: {
+            calle: '',
+            numeroExt: '',
+            numeroInt: '',
+            colonia: '',
+            cp: '',
+            municipio: '',
+            estado: '',
+            pais: 'México',
+            ...initialData?.direccion // Try to spread if exists
+          },
+          email: initialData?.email || '',
+          telefono: initialData?.telefono || '', // Mapping phone
+      };
+
+      if (initialData) {
+          if (initialData.type === 'Moral') {
+              base.razonSocial = initialData.name || '';
+          } else {
+              // Simple split attempt, user can correct
+              const parts = (initialData.name || '').split(' ');
+              base.nombre = parts[0] || '';
+              base.apellidoPaterno = parts.slice(1).join(' ') || '';
+          }
+      }
+      return base;
+  };
+
+  const [formData, setFormData] = useState(initialData ? getInitialFormData() : {
     direccion: {
       calle: '',
       numeroExt: '',

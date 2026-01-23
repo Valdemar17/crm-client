@@ -1,11 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Briefcase, Users, FileText, ShieldAlert, 
-  ArrowUpRight, ArrowDownRight, Calendar, Plus, CreditCard 
+  ArrowUpRight, ArrowDownRight, Calendar, Plus, CreditCard,
+  Calculator, Database, PieChart, Settings, UserPlus
 } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 
+const AVAILABLE_ACTIONS_MAP = {
+    'new_request': { label: 'Nueva Solicitud', icon: <CreditCard size={20}/>, route: 'credito' },
+    'simulate_credit': { label: 'Simular Crédito', icon: <Calculator size={20}/>, route: 'cotizador' },
+    'check_buro': { label: 'Consulta Buró', icon: <Database size={20}/>, route: 'clients' },
+    'view_agenda': { label: 'Ver Agenda', icon: <Calendar size={20}/>, route: 'calendar' },
+    'new_prospect': { label: 'Nuevo Prospecto', icon: <UserPlus size={20}/>, route: 'prospectos' },
+    'pld_report': { label: 'Reporte PLD', icon: <FileText size={20}/>, route: 'pld' },
+    'accounting_balance': { label: 'Balance General', icon: <PieChart size={20}/>, route: 'accounting' },
+    'app_settings': { label: 'Configuración', icon: <Settings size={20}/>, route: 'settings' }
+};
+
 export default function DashboardOverview({ onNavigate }) {
+  const [quickActions, setQuickActions] = useState([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('dashboardQuickActions');
+    setQuickActions(saved ? JSON.parse(saved) : ['new_request', 'simulate_credit', 'check_buro', 'view_agenda']);
+  }, []);
+
   const stats = [
     { 
       title: 'Cartera Vigente', 
@@ -83,6 +102,88 @@ export default function DashboardOverview({ onNavigate }) {
         ))}
       </div>
 
+      {/* Commercial Pipeline section */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-bold text-[#0d121b] dark:text-white flex items-center gap-2">
+            <Users size={20} className="text-[#135bec]" /> Pipeline Comercial
+          </h3>
+          <button onClick={() => onNavigate('prospectos')} className="text-sm font-medium text-[#135bec] hover:underline">Ver Prospectos</button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+             {/* Stage 1: Prospectos Nuevos */}
+             <div className="relative group">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Prospectos</span>
+                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold">New</span>
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-white block">24</span>
+                        <span className="text-xs text-slate-500">Sin contactar</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className="bg-blue-400 h-full rounded-full w-3/4"></div>
+                    </div>
+                </div>
+                {/* Arrow Connector */}
+                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-6 bg-slate-50 dark:bg-slate-800 border-t border-r border-slate-200 dark:border-slate-700 transform rotate-45 z-0"></div>
+             </div>
+
+             {/* Stage 2: En Calificación/Checklist */}
+             <div className="relative group">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">En Checklist</span>
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-white block">8</span>
+                        <span className="text-xs text-slate-500">Documentación pendiente</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className="bg-indigo-400 h-full rounded-full w-1/2"></div>
+                    </div>
+                </div>
+                 <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-6 bg-slate-50 dark:bg-slate-800 border-t border-r border-slate-200 dark:border-slate-700 transform rotate-45 z-0"></div>
+             </div>
+
+             {/* Stage 3: Conversión a Cliente */}
+             <div className="relative group">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Alta Cliente</span>
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-white block">5</span>
+                        <span className="text-xs text-slate-500">En Mesa de Control</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className="bg-purple-400 h-full rounded-full w-1/4"></div>
+                    </div>
+                </div>
+                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-6 bg-slate-50 dark:bg-slate-800 border-t border-r border-slate-200 dark:border-slate-700 transform rotate-45 z-0"></div>
+             </div>
+             
+             {/* Stage 4: Cliente Activo */}
+             <div className="relative group">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-emerald-200 dark:border-emerald-900/30 relative z-10 h-full flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold uppercase text-emerald-600 tracking-wider">Clientes Nuevos</span>
+                        <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-bold">Mes</span>
+                    </div>
+                    <div>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-white block">12</span>
+                        <span className="text-xs text-slate-500">+3 vs mes anterior</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full w-full"></div>
+                    </div>
+                </div>
+             </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Column: Solicitudes Recientes */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -143,30 +244,25 @@ export default function DashboardOverview({ onNavigate }) {
             <div className="bg-gradient-to-br from-[#135bec] to-blue-600 rounded-xl p-6 text-white shadow-lg shadow-blue-500/20">
                 <h3 className="font-bold mb-4 flex items-center"><CreditCard size={20} className="mr-2"/> Acciones Rápidas</h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => onNavigate('credito')}
-                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
-                    >
-                        Nueva Solicitud
-                    </button>
-                    <button 
-                      onClick={() => onNavigate('cotizador')}
-                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
-                    >
-                        Simular Crédito
-                    </button>
-                    <button 
-                      onClick={() => onNavigate('clients')}
-                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
-                    >
-                        Consulta Buró
-                    </button>
-                    <button 
-                      onClick={() => onNavigate('calendar')}
-                      className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors"
-                    >
-                        Ver Agenda
-                    </button>
+                    {quickActions.map(actionId => {
+                        const action = AVAILABLE_ACTIONS_MAP[actionId];
+                        if (!action) return null;
+                        return (
+                            <button 
+                                key={actionId}
+                                onClick={() => onNavigate(action.route)}
+                                className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-sm text-center transition-colors flex flex-col items-center justify-center gap-2 h-24"
+                            >
+                                {action.icon}
+                                {action.label}
+                            </button>
+                        );
+                    })}
+                    {quickActions.length === 0 && (
+                        <p className="col-span-2 text-center text-sm opacity-70">
+                            No hay acciones configuradas. Ve a Configuración.
+                        </p>
+                    )}
                 </div>
             </div>
 
