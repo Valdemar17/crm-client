@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar, CreditCard } from 'lucide-react';
 import NavItem from './NavItem';
 import logo from '../../assets/sofimas-logo.png';
 
@@ -7,6 +7,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clients', label: 'Clientes', icon: Users },
+    { id: 'prospectos', label: 'Prospectos', icon: UserPlus },
     { id: 'credito', label: 'Crédito', icon: CreditCard },
     { id: 'pld', label: 'Módulo PLD', icon: ShieldAlert },
     { id: 'cotizador', label: 'Cotizador', icon: FileText },

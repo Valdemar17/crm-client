@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import MainLayout from './components/layout/MainLayout';
 import DashboardOverview from './features/dashboard/DashboardOverview';
 import ClientsView from './features/clients/ClientsView';
+import ProspectosView from './features/prospectos/ProspectosView';
 import PLDView from './features/pld/PLDView';
 import CotizadorView from './features/cotizador/CotizadorView';
 import AccountingView from './features/accounting/AccountingView';
@@ -40,6 +41,8 @@ function App() {
         return <DashboardOverview onNavigate={setActiveTab} />;
       case 'clients':
         return <ClientsView />;
+      case 'prospectos':
+        return <ProspectosView />;
       case 'credito':
         return <CreditoView />;
       case 'pld':
