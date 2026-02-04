@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Printer, Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft, RefreshCw, Save, Search, Filter, MoreVertical, FileText, Upload, Download } from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft, RefreshCw, Save, Search, Filter, MoreVertical, FileText, Upload, Download, CheckCircle, User, Briefcase, Info, MapPin, Calendar, ClipboardCheck } from 'lucide-react';
 import './DictamenJuridico.css';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -15,20 +15,28 @@ const mockRequests = [
 
 const AVAILABLE_SIGNERS = [
   'Lic. Andrea Lourdes Felix Felix',
-  'Lic. Juan Pérez Martínez',
-  'Lic. María González López'
-];
+  ];
 
 const FIXED_COMPANY = 'SOFIMAS Consultores del Noroeste S.A. de C.V., SOFOM ENR';
 
 const formatLongDate = (dateStr) => {
   if (!dateStr) return '';
-  const date = new Date(dateStr + 'T12:00:00'); // Prevent timezone shift
-  const day = date.getDate();
+  // Check if it matches YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  
+  const [year, month, day] = dateStr.split('-').map(Number);
   const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} de ${month} de ${year}`;
+  
+  if (month < 1 || month > 12) return dateStr;
+  
+  return `${day} de ${months[month - 1]} de ${year}`;
+};
+
+const formatNumber = (num) => {
+    if (!num) return '';
+    const clean = String(num).replace(/,/g, '');
+    if (clean === '' || isNaN(clean)) return num; 
+    return Number(clean).toLocaleString('en-US'); 
 };
 
 const emptyFormData = {
@@ -55,10 +63,10 @@ const initialFormData = {
     objetivo: 'Dictaminar si la sociedad cumple con los requisitos...',
     
     // Antecedentes
-    ant_escritura: '43,321', ant_volumen: '513', ant_fecha: '11 de enero de 2018',
+    ant_escritura: '43,321', ant_volumen: '513', ant_fecha: '2018-01-11',
     ant_fedatario: 'Salvador Antonio Corral Martínez', ant_num_fedatario: 'Notario Público no. 28',
     ant_circunscripcion: 'Hermosillo, Sonora', ant_registro: 'N-201800428 SECCION COMERCIO',
-    ant_fecha_reg: '18 de enero de 2018', ant_lugar_reg: 'Hermosillo, Sonora',
+    ant_fecha_reg: '2018-01-18', ant_lugar_reg: 'Hermosillo, Sonora',
     ant_duracion: 'Indefinida', ant_vigencia: 'Indefinida', ant_domicilio: 'Hermosillo, Sonora',
 
     // Objeto Social
@@ -93,7 +101,7 @@ const initialFormData = {
 
 // Initial State Helpers
 const initialShareholder = { id: 1, name: '', acciones: '', valor: '', porcentaje: '' };
-const initialRep = { id: 1, name: '', cargo: '', rfc: '', id_oficial: '', curp: '', domicilio: '', escritura: '', fecha: '', volumen: '', fedatario: '', registro: '', fecha_registro: '' }; // Empty Rep
+const initialRep = { id: 1, name: '', cargo: '', rfc: '', id_oficial: '', curp: '', domicilio: '', escritura: '', fecha: '', volumen: '', fedatario: '', registro: '', fecha_registro: '', tipo_poderes: '', tipo_escritura: '' }; // Empty Rep
 const initialDocPerson = { id: 1, name: '', sujeto: '', identificacion: '', curp: '', rfc: '', comp_dom: '', acta_mat: '' };
 const initialAdmin = { id: 1, name: '', cargo: '', es_socio: 'no', porcentaje: 'N/A' };
 const initialDeed = { id: 1, tipo: '', numero: '', fecha: '', fedatario: '', lugar: '', registro: '' };
@@ -138,10 +146,10 @@ export default function DictamenJuridico({ onBack }) {
     objetivo: 'Dictaminar si la sociedad cumple con los requisitos...',
     
     // Antecedentes
-    ant_escritura: '43,321', ant_volumen: '513', ant_fecha: '11 de enero de 2018',
+    ant_escritura: '43,321', ant_volumen: '513', ant_fecha: '2018-01-11',
     ant_fedatario: 'Salvador Antonio Corral Martínez', ant_num_fedatario: 'Notario Público no. 28',
     ant_circunscripcion: 'Hermosillo, Sonora', ant_registro: 'N-201800428 SECCION COMERCIO',
-    ant_fecha_reg: '18 de enero de 2018', ant_lugar_reg: 'Hermosillo, Sonora',
+    ant_fecha_reg: '2018-01-18', ant_lugar_reg: 'Hermosillo, Sonora',
     ant_duracion: 'Indefinida', ant_vigencia: 'Indefinida', ant_domicilio: 'Hermosillo, Sonora',
 
     // Objeto Social
@@ -176,8 +184,8 @@ export default function DictamenJuridico({ onBack }) {
 
   // Dynamic Lists State
   const [shareholders, setShareholders] = useState([initialShareholder]);
-  const [reps, setReps] = useState([initialRep]);
-  const [docPersons, setDocPersons] = useState([initialDocPerson]);
+  const [reps, setReps] = useState([{ ...initialRep, id: 1, _docPersonId: 1 }]);
+  const [docPersons, setDocPersons] = useState([{ ...initialDocPerson, id: 1, _repId: 1, sujeto: 'Representante Legal' }]);
   const [admins, setAdmins] = useState([initialAdmin]);
   const [deeds, setDeeds] = useState([initialDeed]);
 
@@ -208,9 +216,9 @@ export default function DictamenJuridico({ onBack }) {
 
   // Calculations
   const totalPercentage = shareholders.reduce((acc, curr) => acc + (parseFloat(curr.porcentaje) || 0), 0);
-  const totalShares = shareholders.reduce((acc, curr) => acc + (parseFloat(curr.acciones) || 0), 0);
+  const totalShares = shareholders.reduce((acc, curr) => acc + (parseFloat(String(curr.acciones).replace(/,/g, '')) || 0), 0);
   const totalAmount = shareholders.reduce((acc, curr) => {
-    const val = parseFloat(curr.valor.replace(/[^0-9.]/g, '')) || 0;
+    const val = parseFloat(String(curr.valor).replace(/[^0-9.]/g, '')) || 0;
     return acc + val;
   }, 0);
 
@@ -233,361 +241,921 @@ export default function DictamenJuridico({ onBack }) {
     setter([...list, { ...initial, id: newId }]);
   };
 
-  const generarPDF = () => {
+  // Función especializada para agregar representante legal y sincronizar con docPersons
+  const addRepresentante = () => {
+    const newRepId = (reps.length > 0 ? Math.max(...reps.map(i => i.id)) : 0) + 1;
+    const newDocId = (docPersons.length > 0 ? Math.max(...docPersons.map(i => i.id)) : 0) + 1;
+    
+    // Agregar representante
+    setReps(prev => [...prev, { ...initialRep, id: newRepId, _docPersonId: newDocId }]);
+    
+    // Agregar persona a documentos
+    setDocPersons(prev => [...prev, { ...initialDocPerson, id: newDocId, _repId: newRepId, sujeto: 'Representante Legal' }]);
+  };
+
+  // Función para eliminar representante y su persona asociada en documentos
+  const removeRepresentante = (repId) => {
+    if (reps.length > 1) {
+      const rep = reps.find(r => r.id === repId);
+      setReps(prev => prev.filter(r => r.id !== repId));
+      
+      // Eliminar persona asociada si existe
+      if (rep && rep._docPersonId) {
+        setDocPersons(prev => prev.filter(p => p.id !== rep._docPersonId));
+      } else {
+        // Buscar por _repId si no hay _docPersonId
+        setDocPersons(prev => prev.filter(p => p._repId !== repId));
+      }
+    }
+  };
+
+  // Función para actualizar representante y sincronizar datos con docPersons
+  const updateRepresentante = (repId, field, value) => {
+    // Primero actualizar el representante
+    setReps(prev => prev.map(rep => 
+      rep.id === repId ? { ...rep, [field]: value } : rep
+    ));
+    
+    // Sincronizar campos relevantes con docPersons
+    if (['name', 'rfc', 'curp', 'id_oficial'].includes(field)) {
+      const fieldMap = { name: 'name', rfc: 'rfc', curp: 'curp', id_oficial: 'identificacion' };
+      const docField = fieldMap[field] || field;
+      
+      setDocPersons(prev => prev.map(p => 
+        p._repId === repId ? { ...p, [docField]: value } : p
+      ));
+    }
+  };
+
+  const generarPDF = (logoImg) => {
     const doc = new jsPDF();
-    doc.setFont('times', 'normal'); // Times font default
-    
-    // CRM Colors Matching CSS
-    const primaryColor = [26, 69, 128]; // #1a4580 (Dictamen Blue)
-    const secondaryColor = [207, 220, 235]; // #cfdceb (Light Blue for Doc headers)
-    const darkText = [0, 0, 0]; 
-    const whiteText = [255, 255, 255];
-    
-    const margin = 15; 
+    // Colores exactos del diseño web
+    const colorBlue900 = [30, 58, 138];     // blue-900 (#1e3a8a)
+    const colorBlue = [26, 69, 128];        // Azul corporativo
+    const colorSlate900 = [15, 23, 42];     // #0f172a
+    const colorSlate700 = [51, 65, 85];     // #334155
+    const colorSlate600 = [71, 85, 105];    // #475569
+    const colorSlate500 = [100, 116, 139];  // #64748b
+    const colorSlate400 = [148, 163, 184];  // #94a3b8
+    const colorSlate300 = [203, 213, 225];  // #cbd5e1
+    const colorSlate200 = [226, 232, 240];  // #e2e8f0
+    const colorSlate100 = [241, 245, 249];  // #f1f5f9
+    const colorSlate50 = [248, 250, 252];   // #f8fafc
+    const colorGray = [100, 116, 139];      // slate-500
+    const colorLightGray = [241, 245, 249]; // slate-100
+    const colorGreen600 = [22, 163, 74];    // green-600
+    const colorRed = [220, 38, 38]; // red-600
+
+    const margin = 15;
     const pageWidth = doc.internal.pageSize.getWidth();
     const contentWidth = pageWidth - (margin * 2);
+    
+    let yPos = 10;
 
-    const img = new Image();
-    img.src = logo;
-
-    img.onload = () => {
-        let yPos = 20;
-        let logoHeight = 0;
-        const logoWidth = 40;
-
-        // --- Header ---
-        // 1. Logo (Left)
-        try {
-            if (img.width > 0) {
-                logoHeight = (img.height * logoWidth) / img.width;
-                doc.addImage(img, 'PNG', margin, yPos, logoWidth, logoHeight);
-            }
-        } catch (e) { console.error("Logo error", e); }
+    // --- HELPER FUNCTIONS ---
+    // Coincide con: <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+    const drawSectionHeader = (title) => {
+        doc.setFontSize(9);
+        doc.setTextColor(...colorBlue900);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title.toUpperCase(), margin + 1, yPos);
         
-        // Calculate vertical center based on logo (or default height if logo fails)
-        const headerRefHeight = logoHeight > 0 ? logoHeight : 25;
-        const headerMidY = yPos + (headerRefHeight / 2);
-
-        // 2. Date (Right)
-        // Content spread: Label at 0, Value at 7. Center ~3.5
-        const dateStartY = headerMidY - 3.5;
+        // Línea debajo del título (border-slate-100)
+        doc.setDrawColor(...colorSlate100);
+        doc.setLineWidth(0.3);
+        doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
         
-        doc.setTextColor(0,0,0);
-        doc.setFontSize(11);
-        doc.setFont('times', 'bold');
-        doc.text("Fecha", pageWidth - margin, dateStartY, { align: 'right' });
-        doc.setFont('times', 'normal');
-        doc.text(formatDate(formData.fechaDocumento), pageWidth - margin, dateStartY + 7, { align: 'right' });
-
-        // 3. Center Text Info
-        // Offsets: Title 0, Line1 5, Line2 9, Line3 13.
-        // Total spread ~13. Center ~6.5
-        let headerTextY = headerMidY - 6.5; 
-        const centerX = pageWidth / 2;
-        
-        doc.setFontSize(10);
-        doc.setFont('times', 'bold');
-        doc.text('Dictamen Jurídico', centerX, headerTextY, { align: 'center' });
-        headerTextY += 5;
-        
-        doc.setFontSize(8);
-        doc.setFont('times', 'normal');
-        doc.text('SOFIMAS Consultores del Noroeste S.A. de C.V. SOFOM E.N.R.', centerX, headerTextY, { align: 'center' });
-        headerTextY += 4;
-        doc.text('Paseo Río Sonora Sur #205, Col. Proyecto Río Sonora 83270', centerX, headerTextY, { align: 'center' });
-        headerTextY += 4;
-        doc.text('Hermosillo Sonora; www.sofimas.com', centerX, headerTextY, { align: 'center' });
-        
-        // Header Spacing - Move down past the logo/content
-        yPos = Math.max(yPos + headerRefHeight + 5, headerTextY + 10);
-        yPos += 5;
-
-        // Helper: Section Title
-        const addSectionTitle = (title, y) => {
-            doc.setFillColor(...primaryColor);
-            doc.rect(margin, y, contentWidth, 7, 'F'); // Blue bar
-            doc.setDrawColor(0, 0, 0);
-            doc.rect(margin, y, contentWidth, 7, 'S'); // Black border
-            
-            doc.setTextColor(...whiteText);
-            doc.setFontSize(10);
-            doc.setFont('times', 'bold');
-            doc.text(title, pageWidth / 2, y + 5, { align: 'center' });
-            return y + 7;
-        };
-
-        const addTextContent = (text, y, isHighEmphasis = false) => {
-            doc.setDrawColor(0, 0, 0); 
-            doc.setFontSize(isHighEmphasis ? 11 : 9);
-            doc.setFont('times', isHighEmphasis ? 'bold' : 'normal');
-            
-            const splitText = doc.splitTextToSize(text || '', contentWidth - 4);
-            const blockHeight = Math.max(7, (splitText.length * 4) + 4);
-            
-            // Draw Box
-            doc.setFillColor(isHighEmphasis ? 255 : 255); 
-            doc.rect(margin, y, contentWidth, blockHeight, 'S'); 
-            
-            // Text
-            doc.setTextColor(0, 0, 0);
-            doc.text(splitText, margin + 2, y + 4);
-            
-            return y + blockHeight - 0.2;
-        };
-
-        // I. Denominación
-        yPos = addSectionTitle('I.- Denominación de la Sociedad', yPos);
-        yPos = addTextContent(formData.denominacion, yPos, true);
-
-        // II. Objetivo
-        yPos = addSectionTitle('II.- Objetivo', yPos);
-        yPos = addTextContent(formData.objetivo, yPos);
-        yPos += 0;
-
-        // III. Antecedentes
-        yPos = addSectionTitle('III.- Antecedentes del Hecho', yPos);
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [],
-            body: [
-                [{ content: 'Constitución de la Sociedad:', rowSpan: 12, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'Número de escritura:', formData.ant_escritura],
-                ['Volumen:', formData.ant_volumen],
-                ['Fecha de Escritura Pública:', formData.ant_fecha],
-                ['Fedatario Público:', formData.ant_fedatario],
-                ['No de Fedatario Público:', formData.ant_num_fedatario],
-                ['Circunscripción:', formData.ant_circunscripcion],
-                ['Numero de Registro Público:', formData.ant_registro],
-                ['Fecha de Registro Público:', formData.ant_fecha_reg],
-                ['Lugar de Registro Público:', formData.ant_lugar_reg],
-                ['Duración de la Sociedad:', formData.ant_duracion],
-                ['Vigencia:', formData.ant_vigencia],
-                ['Domicilio:', formData.ant_domicilio],
-            ],
-            theme: 'plain',
-            styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], font: 'times' },
-            columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 45, fontStyle: 'bold', fillColor: [255, 255, 255], halign: 'right' }, 2: { cellWidth: 'auto' } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-        yPos = doc.lastAutoTable.finalY - 0.2;
-
-        doc.autoTable({
-            startY: yPos,
-            head: [[{ content: 'Cuadro Accionario Actual:', colSpan: 4, styles: { halign: 'left', fontStyle: 'bold' } }]],
-            body: [
-                ['Nombre', 'Acciones', 'Cantidad', 'Porcentaje'],
-                ...shareholders.map(s => [s.name, s.acciones, s.valor, s.porcentaje + '%']),
-                ['TOTAL', totalShares, `$${totalAmount.toLocaleString()}`, `${totalPercentage}%`]
-            ],
-            theme: 'plain',
-            styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], cellPadding: 2, font: 'times' },
-            columnStyles: { 0: { cellWidth: 60 } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-        yPos = doc.lastAutoTable.finalY - 0.2;
-        
-        doc.autoTable({
-            startY: yPos,
-            body: [
-                [{ content: 'Objeto Social:', rowSpan: 5, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'Facultad Títulos Crédito:', formData.obj_titulos],
-                ['Facultad Arrendamiento:', formData.obj_arrendamiento],
-                ['Facultad Factoraje:', formData.obj_factoraje],
-                ['Otros objetos:', formData.obj_otros],
-                [{ content: formData.obj_descripcion, colSpan: 2, styles: { halign: 'justify', minCellHeight: 15 } }], 
-                
-                [{ content: 'Datos Inscritos SAT:', rowSpan: 3, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'RFC:', formData.sat_rfc],
-                ['Domicilio Fiscal:', formData.sat_domicilio],
-                ['Actividad Económica:', formData.sat_actividad],
-            ],
-            theme: 'plain',
-            styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], font: 'times' },
-            columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 45, fontStyle: 'bold' }, 2: { cellWidth: 'auto' } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-
-        // --- PAGE 2: Rep Legal, Observaciones, Cuestionamientos ---
-        doc.addPage();
-        yPos = 20;
-
-        // IV. Representación Legal
-        yPos = addSectionTitle('IV.- Representación Legal', yPos);
-        
-        reps.forEach(rep => {
-            doc.autoTable({
-                startY: yPos,
-                body: [
-                    [{ content: 'Datos Personales:', rowSpan: 4, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center', cellWidth: 35 } }, 'Nombre:', rep.name, 'Cargo:', rep.cargo],
-                    ['RFC:', rep.rfc, 'ID Oficial:', rep.id_oficial],
-                    ['CURP:', rep.curp, { content: '', colSpan: 2 }],
-                    ['Domicilio:', { content: rep.domicilio, colSpan: 3 }],
-                    
-                    [{ content: 'Escritura Pública:', rowSpan: 3, styles: { fontStyle: 'bold', valign: 'middle', halign: 'center' } }, 'Número:', rep.escritura, 'Fecha:', rep.fecha],
-                    ['Volumen:', rep.volumen, 'Fedatario:', rep.fedatario],
-                    ['Registro:', rep.registro, 'Fecha Reg:', rep.fecha_registro]
-                ],
-                theme: 'plain',
-                styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], cellPadding: 2, font: 'times' },
-                columnStyles: { 1: { fontStyle: 'bold', cellWidth: 25 }, 3: { fontStyle: 'bold', cellWidth: 25 } },
-                margin: { left: margin, right: margin },
-                tableLineColor: [0, 0, 0],
-                tableLineWidth: 0.1
-            });
-            yPos = doc.lastAutoTable.finalY - 0.2; 
-        });
-        yPos += 0;
-
-        // V. Observaciones
-        yPos = addSectionTitle('V.- Observaciones', yPos);
-        
-        doc.autoTable({
-            startY: yPos,
-            body: [
-                ['Observaciones de la Sociedad:', formData.obs_sociedad],
-                ['Observaciones del Representante Legal:', formData.obs_rep_legal]
-            ],
-            theme: 'plain',
-            styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], cellPadding: 3, font: 'times' },
-            columnStyles: { 0: { cellWidth: 45, fontStyle: 'bold', valign: 'middle' } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-        yPos = doc.lastAutoTable.finalY + 0;
-
-        // VI. Cuestionamientos
-        yPos = addSectionTitle('VI.- Cuestionamientos', yPos);
-
-        const questions = Array.from({length: 13}, (_, i) => getQuestionLabel(i + 1));
-
-        doc.autoTable({
-            startY: yPos,
-            body: questions.map((q, i) => [q, formData[`q${i+1}`] || '']),
-            theme: 'plain',
-            styles: { fontSize: 8, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0], cellPadding: 1, font: 'times' },
-            columnStyles: { 0: { cellWidth: 150 }, 1: { fontStyle: 'bold', halign: 'center' } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-
-
-        // --- PAGE 3: Documentación, Escrituras ---
-        doc.addPage();
-        yPos = 20;
-
-        // VII. Documentación
-        yPos = addSectionTitle('VII.- Documentación Dictaminada', yPos);
-
-        // Subheader
-        doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]); // #cfdceb
-        doc.rect(margin, yPos, contentWidth, 6, 'FD'); // Fill and Border
-        doc.setFontSize(8); doc.setTextColor(0,0,0); 
-        doc.setFont('times', 'bold');
-        doc.text("Lista de Documentos Dictaminados.-", pageWidth/2, yPos + 4, { align: 'center' });
-        yPos += 6;
-
-        doc.autoTable({
-            startY: yPos,
-            head: [['Denominación Social', 'Comprobante domicilio', 'Acta Constitutiva', 'RPP Acta Constitutiva', 'Otras Escrituras', 'RPP otras Escrituras', 'RPP otras Escrituras', 'RFC/Constancia']],
-            body: [[
-                formData.denominacion, 
-                formData.doc_comp_dom, formData.doc_acta_const, formData.doc_rpp_acta,
-                formData.doc_otras_esc, formData.doc_rpp_otras, formData.doc_rfc_const
-            ]],
-            theme: 'plain',
-            headStyles: { fillColor: secondaryColor, textColor: [0,0,0], fontSize: 7, halign: 'center', lineColor: [0,0,0], lineWidth: 0.1, font: 'times' },
-            styles: { fontSize: 7, cellPadding: 2, halign: 'center', lineColor: [0,0,0], lineWidth: 0.1, textColor: [0,0,0], font: 'times' },
-            columnStyles: { 0: { cellWidth: 35, halign: 'left', fontStyle: 'bold' } },
-            margin: { left: margin, right: margin },
-            tableLineColor: [0, 0, 0],
-            tableLineWidth: 0.1
-        });
-        yPos = doc.lastAutoTable.finalY - 0.1;
-
-        if (docPersons.length > 0) {
-            doc.autoTable({
-                startY: yPos,
-                head: [['Personas Físicas', 'Identificación Oficial', 'CURP', 'RFC', 'Comprobante Domicilio', 'Acta Matrimonio', '-']],
-                body: docPersons.map(p => [
-                    p.name + (p.sujeto ? ` (${p.sujeto})` : ''),
-                    p.identificacion, p.curp, p.rfc, p.comp_dom, p.acta_mat, '-'
-                ]),
-                theme: 'plain',
-                headStyles: { fillColor: secondaryColor, textColor: [0,0,0], fontSize: 7, halign: 'center', lineColor: [0,0,0], lineWidth: 0.1, font: 'times' },
-                styles: { fontSize: 7, cellPadding: 2, halign: 'center', lineColor: [0,0,0], lineWidth: 0.1, textColor: [0,0,0], font: 'times' },
-                columnStyles: { 0: { cellWidth: 35, halign: 'left', fontStyle: 'bold' } },
-                margin: { left: margin, right: margin },
-                tableLineColor: [0, 0, 0],
-                tableLineWidth: 0.1
-            });
-            yPos = doc.lastAutoTable.finalY + 5;
-        }
-
-        // IX. Escrituras
-        if (deeds.length > 0) {
-             yPos = addSectionTitle('IX.- Escrituras Dictaminadas', yPos);
-             doc.autoTable({
-                startY: yPos,
-                head: [['Tipo de Escritura', 'Numero de Escritura', 'Fecha', 'Nombre Fedatario', 'Lugar', 'Datos Registro']],
-                body: deeds.map(d => [d.tipo, d.numero, d.fecha, d.fedatario, d.lugar, d.registro]),
-                theme: 'plain',
-                headStyles: { fillColor: [220, 230, 241], textColor: [0,0,0], fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, font: 'times' }, // #dce6f1
-                styles: { fontSize: 8, cellPadding: 2, lineColor: [0,0,0], lineWidth: 0.1, textColor: [0,0,0], font: 'times' },
-                margin: { left: margin, right: margin },
-                tableLineColor: [0, 0, 0],
-                tableLineWidth: 0.1
-            });
-            yPos = doc.lastAutoTable.finalY + 10;
-        }
-
-        // --- PAGE 4: Conclusión, Firma ---
-        doc.addPage();
-        yPos = 20;
-
-        // X. Conclusión
-        yPos = addSectionTitle('X.- Conclusión', yPos);
-        
-        doc.setDrawColor(0,0,0);
-        doc.rect(margin, yPos, contentWidth, 15, 'S'); 
-        doc.setFontSize(11);
-        doc.setTextColor(0,0,0);
-        doc.setFont('times', 'bold');
-        doc.text(formData.conclusion, pageWidth / 2, yPos + 10, { align: 'center' });
-        yPos += 25;
-
-        // XI. Firma
-        yPos = addSectionTitle('XI.- Fecha y Firma', yPos);
-        yPos += 5;
-        
-        doc.setTextColor(0,0,0); // Ensure text is black
-        doc.rect(margin, yPos, contentWidth, 50, 'S');
-        
-        doc.setFontSize(10);
-        doc.setFont('times', 'normal');
-        // Construct place and date string
-        const lugarFecha = `Hermosillo, Sonora a ${formatLongDate(formData.fechaDocumento)}`;
-        doc.text(lugarFecha, pageWidth / 2, yPos + 10, { align: 'center' });
-        
-        yPos += 30;
-        doc.setLineWidth(0.5);
-        doc.line(pageWidth / 2 - 40, yPos, pageWidth / 2 + 40, yPos);
-        yPos += 5;
-
-        doc.setFont('times', 'bold');
-        doc.text(FIXED_COMPANY, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 5;
-        doc.setFont('times', 'normal');
-        doc.text(formData.nombre_firmante, pageWidth / 2, yPos, { align: 'center' });
-
-        // Save
-        doc.save(`Dictamen_${formData.denominacion.substring(0,20).replace(/\s+/g, '_')}.pdf`);
+        return yPos + 6;
     };
+
+    // Bloque estilo: bg-slate-50 p-4 rounded-lg border-l-4
+    const drawBlock = (title, content, x, y, w, h, borderColor = null, isBold = false) => {
+        // Background slate-50 con bordes redondeados
+        doc.setFillColor(...colorSlate50);
+        doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
+        
+        // Borde izquierdo (border-l-4)
+        if (borderColor) {
+            doc.setDrawColor(...borderColor);
+            doc.setLineWidth(1.2);
+            doc.line(x, y + 1, x, y + h - 1);
+        }
+
+        // Título pequeño uppercase (text-[10px] uppercase font-bold)
+        doc.setFontSize(6.5);
+        doc.setTextColor(...(borderColor && borderColor[0] === colorBlue900[0] ? colorBlue900 : colorSlate500));
+        doc.setFont('helvetica', 'bold');
+        doc.text(title.toUpperCase(), x + 4, y + 4);
+
+        // Contenido
+        doc.setFontSize(isBold ? 11 : 8);
+        doc.setTextColor(...(isBold ? colorSlate900 : colorSlate600));
+        doc.setFont('helvetica', isBold ? 'bold' : 'italic');
+        
+        const splitText = doc.splitTextToSize(content || '', w - 8);
+        doc.text(splitText, x + 4, y + 9);
+        
+        return y + h + 3;
+    };
+
+    // Bloque de datos pequeños (bg-slate-50 p-3 rounded border border-slate-100)
+    const drawInfoBlock = (title, content, x, y, w, h) => {
+        doc.setFillColor(...colorSlate50);
+        doc.roundedRect(x, y, w, h, 1, 1, 'F');
+        doc.setDrawColor(...colorSlate100);
+        doc.roundedRect(x, y, w, h, 1, 1, 'S');
+        
+        doc.setFontSize(6);
+        doc.setTextColor(...colorSlate400);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title.toUpperCase(), x + 3, y + 4);
+        
+        doc.setFontSize(7);
+        doc.setTextColor(...colorSlate700);
+        doc.setFont('helvetica', 'bold');
+        const splitText = doc.splitTextToSize(content || '-', w - 6);
+        doc.text(splitText, x + 3, y + 8);
+        
+        return y + h + 2;
+    };
+
+    const checkPageBreak = (neededHeight) => {
+        if (yPos + neededHeight > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            yPos = 20;
+            return true;
+        }
+        return false;
+    };
+
+    // --- HEADER (coincide con diseño web) ---
+    // Borde superior azul (border-t-8 border-blue-900)
+    doc.setFillColor(...colorBlue900);
+    doc.rect(0, 0, pageWidth, 3, 'F');
+    
+    yPos = 10;
+    
+    // Left side: LOGO
+    if (logoImg) {
+        try {
+            const logoWidth = 35; 
+            const logoHeight = (logoImg.height * logoWidth) / logoImg.width;
+            doc.addImage(logoImg, 'PNG', margin, yPos, logoWidth, logoHeight);
+        } catch (e) {
+            console.error(e);
+            doc.setFontSize(20);
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("SOFIMAS", margin, yPos + 8);
+        }
+    } else {
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colorBlue900);
+        doc.text("SOFIMAS", margin, yPos + 8);
+    }
+
+    // Right side (text-right)
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...colorBlue900);
+    doc.text("DICTAMEN JURÍDICO", pageWidth - margin, yPos + 5, { align: 'right' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...colorSlate500);
+    doc.text(FIXED_COMPANY, pageWidth - margin, yPos + 10, { align: 'right' });
+
+    doc.setFontSize(7);
+    doc.setTextColor(...colorSlate400);
+    doc.text(formatLongDate(formData.fechaDocumento), pageWidth - margin, yPos + 14, { align: 'right' });
+
+    yPos += 20;
+    
+    // Línea separadora (border-b border-gray-100)
+    doc.setDrawColor(...colorSlate100);
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 5;
+
+
+    // --- I. IDENTIFICACIÓN ---
+    
+    // Block 1: Denominación (bg-slate-50 p-4 rounded-lg border-l-4 border-blue-900)
+    const denomLines = doc.splitTextToSize(formData.denominacion || '', contentWidth - 10);
+    const denomHeight = Math.max(14, (denomLines.length * 5) + 6);
+    drawBlock("Denominación de la Sociedad", formData.denominacion, margin, yPos, contentWidth, denomHeight, colorBlue900, true);
+    yPos += denomHeight + 2;
+
+    // Block 2: Objetivo (bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300)
+    const objLines = doc.splitTextToSize(`"${formData.objetivo}"`, contentWidth - 10).length;
+    const objHeight = Math.max(14, (objLines * 3.5) + 6);
+    drawBlock("Objetivo del Dictamen", `"${formData.objetivo}"`, margin, yPos, contentWidth, objHeight, colorSlate300, false);
+    yPos += objHeight + 4;
+
+    // --- II. ANTECEDENTES ---
+    checkPageBreak(60);
+    yPos = drawSectionHeader("Antecedentes del Hecho");
+    
+    const antData = [
+        { l: "Escritura", v: formatNumber(formData.ant_escritura) }, 
+        { l: "Volumen", v: formatNumber(formData.ant_volumen) },
+        { l: "Fecha Pública", v: formatLongDate(formData.ant_fecha) }, 
+        { l: "Fedatario", v: `${formData.ant_fedatario} (${formData.ant_num_fedatario || ''})` },
+        { l: "Registro Público", v: formData.ant_registro }, 
+        { l: "Fecha Registro", v: formatLongDate(formData.ant_fecha_reg) },
+        { l: "Lugar Registro", v: formData.ant_lugar_reg },
+        { l: "Circunscripción", v: formData.ant_circunscripcion },
+        { l: "Duración Soc.", v: formData.ant_duracion },
+        { l: "Vigencia", v: formData.ant_vigencia },
+        { l: "Domicilio Social", v: formData.ant_domicilio }
+    ];
+
+    // Grid de 3 columnas (coincide con: grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2)
+    let rowY = yPos;
+    const cellW = (contentWidth / 3) - 3;
+    
+    for (let i = 0; i < antData.length; i += 3) {
+        const items = [antData[i], antData[i + 1], antData[i + 2]].filter(Boolean);
+        
+        const heights = items.map(item => {
+            const lines = doc.splitTextToSize(item.v || '-', cellW - 4);
+            return Math.max(10, (lines.length * 3) + 5);
+        });
+        const rowHeight = Math.max(...heights);
+        
+        // Dibujar cada celda con border-b border-gray-100
+        items.forEach((item, col) => {
+            const x = margin + (col * (cellW + 4.5));
+            
+            // Label (text-[10px] uppercase font-bold text-gray-400)
+            doc.setFontSize(6);
+            doc.setTextColor(...colorSlate400);
+            doc.setFont('helvetica', 'bold');
+            doc.text(item.l.toUpperCase(), x, rowY + 3);
+            
+            // Valor (text-sm font-semibold text-slate-700)
+            doc.setFontSize(8);
+            doc.setTextColor(...colorSlate700);
+            doc.setFont('helvetica', 'bold');
+            const lines = doc.splitTextToSize(item.v || '-', cellW - 4);
+            doc.text(lines, x, rowY + 7);
+            
+            // Línea divisora (border-b border-gray-100)
+            doc.setDrawColor(...colorSlate100);
+            doc.setLineWidth(0.2);
+            doc.line(x, rowY + rowHeight - 1, x + cellW - 2, rowY + rowHeight - 1);
+        });
+        
+        rowY += rowHeight;
+    }
+    yPos = rowY + 4;
+
+
+    // --- III. CUADRO ACCIONARIO ---
+    checkPageBreak(60);
+    yPos = drawSectionHeader("Cuadro Accionario Actual");
+    
+    // Tabla con bordes redondeados (overflow-hidden rounded-lg border border-slate-200)
+    doc.autoTable({
+        startY: yPos,
+        head: [['Nombre / Razón Social', 'Acciones', 'Cantidad', 'Porcentaje']],
+        body: [
+            ...shareholders.map(s => [s.name, formatNumber(s.acciones), formatNumber(s.valor), s.porcentaje + '%']),
+            ['TOTAL', totalShares.toLocaleString('en-US'), `$${totalAmount.toLocaleString('en-US')}`, `${totalPercentage}%`]
+        ],
+        theme: 'plain',
+        headStyles: { 
+            fillColor: colorSlate50, 
+            textColor: colorSlate500, 
+            fontStyle: 'bold', 
+            fontSize: 7,
+            halign: 'left',
+            cellPadding: 3
+        },
+        styles: { 
+            fontSize: 8, 
+            cellPadding: 2.5, 
+            textColor: colorSlate900,
+            overflow: 'linebreak',
+            font: 'helvetica',
+            lineColor: colorSlate200,
+            lineWidth: 0.1
+        },
+        columnStyles: {
+            0: { cellWidth: 'auto', fontStyle: 'bold' },
+            1: { halign: 'center', cellWidth: 25 },
+            2: { halign: 'right', cellWidth: 35 },
+            3: { halign: 'right', cellWidth: 25, fontStyle: 'bold', textColor: colorBlue900 }
+        },
+        margin: { left: margin, right: margin },
+        tableLineColor: colorSlate200,
+        tableLineWidth: 0.2
+    });
+    yPos = doc.lastAutoTable.finalY + 5;
+
+    // --- OBJETO SOCIAL ---
+    if (formData.obj_descripcion || formData.obj_titulos) {
+        checkPageBreak(40);
+        yPos = drawSectionHeader("Objeto Social");
+
+        // Facultades en grid 2x2 (bg-slate-50 p-3 rounded border border-slate-100)
+        const faculties = [
+            { l: "Facultad para Títulos de Crédito", v: formData.obj_titulos },
+            { l: "Facultad para Arrendamiento", v: formData.obj_arrendamiento },
+            { l: "Facultad para Factoraje", v: formData.obj_factoraje },
+            { l: "Otros Objetos Sociales", v: formData.obj_otros }
+        ];
+
+        let fY = yPos;
+        const colW = (contentWidth / 2) - 3;
+
+        for (let i = 0; i < faculties.length; i += 2) {
+            const f1 = faculties[i];
+            const f2 = faculties[i + 1];
+            
+            const splitVal1 = doc.splitTextToSize(f1.v || 'No especificado', colW - 8);
+            const splitVal2 = f2 ? doc.splitTextToSize(f2.v || 'No especificado', colW - 8) : [];
+            
+            const h1 = Math.max(14, (splitVal1.length * 3) + 8);
+            const h2 = f2 ? Math.max(14, (splitVal2.length * 3) + 8) : 0;
+            const rowHeight = Math.max(h1, h2);
+            
+            checkPageBreak(rowHeight + 5);
+            
+            // Bloque izquierdo
+            const fX1 = margin;
+            doc.setFillColor(...colorSlate50);
+            doc.roundedRect(fX1, fY, colW, rowHeight, 1, 1, 'F');
+            doc.setDrawColor(...colorSlate100);
+            doc.roundedRect(fX1, fY, colW, rowHeight, 1, 1, 'S');
+            doc.setFontSize(6);
+            doc.setTextColor(...colorSlate400);
+            doc.setFont('helvetica', 'bold');
+            doc.text(f1.l.toUpperCase(), fX1 + 3, fY + 5);
+            doc.setFontSize(7);
+            doc.setTextColor(...colorSlate700);
+            doc.setFont('helvetica', 'bold');
+            doc.text(splitVal1, fX1 + 3, fY + 10);
+            
+            // Bloque derecho
+            if (f2) {
+                const fX2 = margin + colW + 6;
+                doc.setFillColor(...colorSlate50);
+                doc.roundedRect(fX2, fY, colW, rowHeight, 1, 1, 'F');
+                doc.setDrawColor(...colorSlate100);
+                doc.roundedRect(fX2, fY, colW, rowHeight, 1, 1, 'S');
+                doc.setFontSize(6);
+                doc.setTextColor(...colorSlate400);
+                doc.setFont('helvetica', 'bold');
+                doc.text(f2.l.toUpperCase(), fX2 + 3, fY + 5);
+                doc.setFontSize(7);
+                doc.setTextColor(...colorSlate700);
+                doc.setFont('helvetica', 'bold');
+                doc.text(splitVal2, fX2 + 3, fY + 10);
+            }
+            
+            fY += rowHeight + 3;
+        }
+        yPos = fY;
+
+        // Objeto Social Principal (bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300)
+        if (formData.obj_descripcion) {
+            const splitObj = doc.splitTextToSize(`"${formData.obj_descripcion}"`, contentWidth - 10);
+            const objHeight = Math.max(14, (splitObj.length * 3.5) + 8);
+            checkPageBreak(objHeight + 2);
+            drawBlock("Objeto Social Principal", `"${formData.obj_descripcion}"`, margin, yPos, contentWidth, objHeight, colorSlate300, false);
+            yPos += objHeight + 4;
+        }
+    }
+
+    // --- DATOS INSCRITOS ANTE EL SAT ---
+    if (formData.sat_rfc || formData.sat_domicilio) {
+        checkPageBreak(40);
+        yPos = drawSectionHeader("Datos Inscritos ante el SAT");
+    
+        // Grid 1/3 + 2/3 (coincide con: grid grid-cols-1 md:grid-cols-3)
+        const rfcW = (contentWidth / 3) - 2;
+        const domW = (contentWidth * 2 / 3) - 2;
+        
+        const rfcLines = doc.splitTextToSize(formData.sat_rfc || '-', rfcW - 8);
+        const domLines = doc.splitTextToSize(formData.sat_domicilio || '-', domW - 8);
+        
+        const rowHeight = Math.max(14, Math.max(rfcLines.length, domLines.length) * 3.5 + 8);
+        
+        // RFC Block
+        drawInfoBlock("RFC", formData.sat_rfc, margin, yPos, rfcW, rowHeight);
+        
+        // Domicilio Block
+        doc.setFillColor(...colorSlate50);
+        doc.roundedRect(margin + rfcW + 4, yPos, domW, rowHeight, 1, 1, 'F');
+        doc.setDrawColor(...colorSlate100);
+        doc.roundedRect(margin + rfcW + 4, yPos, domW, rowHeight, 1, 1, 'S');
+        doc.setFontSize(6);
+        doc.setTextColor(...colorSlate500);
+        doc.setFont('helvetica', 'bold');
+        doc.text("DOMICILIO FISCAL", margin + rfcW + 7, yPos + 4);
+        doc.setFontSize(7);
+        doc.setTextColor(...colorSlate700);
+        doc.setFont('helvetica', 'normal');
+        doc.text(domLines, margin + rfcW + 7, yPos + 9);
+        
+        yPos += rowHeight + 3;
+    
+        // Actividad Económica (full width)
+        if (formData.sat_actividad) {
+            const actLines = doc.splitTextToSize(formData.sat_actividad || '', contentWidth - 8);
+            const actH = Math.max(14, (actLines.length * 3.5) + 8);
+            checkPageBreak(actH);
+            
+            doc.setFillColor(...colorSlate50);
+            doc.roundedRect(margin, yPos, contentWidth, actH, 1, 1, 'F');
+            doc.setDrawColor(...colorSlate100);
+            doc.roundedRect(margin, yPos, contentWidth, actH, 1, 1, 'S');
+            doc.setFontSize(6);
+            doc.setTextColor(...colorSlate500);
+            doc.setFont('helvetica', 'bold');
+            doc.text("ACTIVIDAD ECONÓMICA", margin + 3, yPos + 4);
+            doc.setFontSize(7);
+            doc.setTextColor(...colorSlate700);
+            doc.setFont('helvetica', 'normal');
+            doc.text(actLines, margin + 3, yPos + 9);
+            
+            yPos += actH + 3;
+        }
+    }
+
+
+    // --- IV. REPRESENTACIÓN LEGAL ---
+    checkPageBreak(50);
+    yPos = drawSectionHeader("Representación Legal");
+
+    // Grid de 2 columnas para representantes (coincide con diseño web)
+    for (let i = 0; i < reps.length; i += 2) {
+        const rep1 = reps[i];
+        const rep2 = reps[i+1];
+        
+        const getRepHeight = (r) => {
+            if (!r) return 0;
+            const typeLines = r.tipo_poderes ? doc.splitTextToSize(r.tipo_poderes, (contentWidth/2) - 15) : [];
+            const domLines = r.domicilio ? doc.splitTextToSize(r.domicilio, (contentWidth/2) - 15) : [];
+            return 50 + (typeLines.length * 3) + (domLines.length * 3) + 25;
+        };
+
+        const h1 = getRepHeight(rep1);
+        const h2 = getRepHeight(rep2);
+        const rowHeight = Math.max(h1, h2);
+
+        checkPageBreak(rowHeight + 10);
+        
+        // Función para dibujar tarjeta de representante (p-4 bg-slate-50 rounded-lg border border-slate-100)
+        const drawRepCard = (r, x, w, h) => {
+            if (!r) return;
+            
+            // Background con bordes redondeados
+            doc.setFillColor(...colorSlate50);
+            doc.roundedRect(x, yPos, w, h, 2, 2, 'F');
+            doc.setDrawColor(...colorSlate100);
+            doc.roundedRect(x, yPos, w, h, 2, 2, 'S');
+
+            // Badge de cargo (absolute top-0 right-0 p-2 bg-blue-900 text-white)
+            const cargoText = (r.cargo || 'SIN CARGO').toUpperCase();
+            doc.setFontSize(5);
+            const cargoW = doc.getTextWidth(cargoText) + 6;
+            doc.setFillColor(...colorBlue900);
+            doc.roundedRect(x + w - cargoW - 1, yPos + 1, cargoW, 5, 0, 0, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text(cargoText, x + w - cargoW/2 - 1, yPos + 4, { align: 'center' });
+
+            // Nombre (text-lg font-bold text-blue-900)
+            doc.setTextColor(...colorBlue900);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(r.name || '', x + 4, yPos + 9);
+            
+            // Campos de datos
+            let cY = yPos + 14;
+            doc.setFontSize(7);
+            
+            // RFC
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.text("RFC:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(r.rfc || '-', x + 14, cY);
+            cY += 3.5;
+            
+            // ID Oficial
+            doc.setFont('helvetica', 'bold');
+            doc.text("ID Oficial:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(r.id_oficial || '-', x + 20, cY);
+            cY += 3.5;
+            
+            // CURP
+            doc.setFont('helvetica', 'bold');
+            doc.text("CURP:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(r.curp || '-', x + 16, cY);
+            cY += 3.5;
+            
+            // Domicilio con ícono
+            const domLines = doc.splitTextToSize(r.domicilio || '-', w - 10);
+            doc.text(domLines, x + 4, cY);
+            cY += (domLines.length * 3.5) + 2;
+
+            // Línea divisora (mt-2 pt-2 border-t border-slate-200)
+            doc.setDrawColor(...colorSlate200);
+            doc.setLineWidth(0.2);
+            doc.line(x + 4, cY, x + w - 4, cY);
+            cY += 4;
+            
+            // Sección Poderes (text-[10px] font-bold text-slate-400 uppercase)
+            doc.setFontSize(6);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...colorSlate400);
+            doc.text("PODERES", x + 4, cY);
+            cY += 4;
+            
+            // Texto de poderes (text-xs text-slate-800 italic)
+            if (r.tipo_poderes) {
+                const typeLines = doc.splitTextToSize(r.tipo_poderes, w - 10);
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(...colorSlate700);
+                doc.text(typeLines, x + 4, cY);
+                cY += (typeLines.length * 3) + 3;
+            }
+            
+            // Datos de escritura en grid (text-xs text-slate-600)
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            
+            if (r.tipo_escritura) {
+                doc.setTextColor(...colorBlue900);
+                doc.setFont('helvetica', 'bold');
+                doc.text("Tipo:", x + 4, cY);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(...colorSlate600);
+                doc.text(r.tipo_escritura, x + 14, cY);
+                cY += 3;
+            }
+
+            // Fila: Escritura | Volumen
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Escritura:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            doc.text(formatNumber(r.escritura) || '-', x + 20, cY);
+            
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Volumen:", x + w/2, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            doc.text(formatNumber(r.volumen) || '-', x + w/2 + 15, cY);
+            cY += 3;
+
+            // Fila: Fecha | Fecha Reg
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Fecha:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            doc.text(formatLongDate(r.fecha) || '-', x + 16, cY);
+            cY += 3;
+
+            // Fedatario (full width)
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Fedatario:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            doc.text(r.fedatario || '-', x + 20, cY);
+            cY += 3;
+            
+            // Registro
+            doc.setTextColor(...colorBlue900);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Registro:", x + 4, cY);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...colorSlate600);
+            const regLines = doc.splitTextToSize(r.registro || '-', w - 25);
+            doc.text(regLines, x + 18, cY);
+        };
+
+        const cardWidth = (contentWidth / 2) - 3;
+        
+        drawRepCard(rep1, margin, cardWidth, rowHeight);
+        if (rep2) drawRepCard(rep2, margin + cardWidth + 6, cardWidth, rowHeight);
+        
+        yPos += rowHeight + 5;
+    }
+
+
+    // --- V. IDENTIFICACIÓN DE LA ADMINISTRACIÓN ---
+    checkPageBreak(60);
+    yPos = drawSectionHeader("Identificación de la Administración");
+
+    doc.autoTable({
+        startY: yPos,
+        head: [['Nombre', 'Cargo', 'Accionista']],
+        body: admins.map(a => [
+            a.name, 
+            a.cargo, 
+            a.es_socio === 'si' ? (a.porcentaje && a.porcentaje !== 'N/A' ? `SÍ (${a.porcentaje}%)` : 'SÍ') : 'NO'
+        ]),
+        theme: 'plain',
+        headStyles: { 
+            fillColor: colorSlate50, 
+            textColor: colorSlate500, 
+            fontStyle: 'bold', 
+            fontSize: 7,
+            halign: 'left',
+            cellPadding: 3
+        },
+        styles: { 
+            fontSize: 7, 
+            cellPadding: 2.5, 
+            textColor: colorSlate900,
+            overflow: 'linebreak',
+            font: 'helvetica',
+            lineColor: colorSlate100,
+            lineWidth: 0.1
+        },
+        margin: { left: margin, right: margin }
+    });
+    yPos = doc.lastAutoTable.finalY + 5;
+
+
+    // --- VI. ESCRITURAS DICTAMINADAS ---
+    checkPageBreak(60);
+    yPos = drawSectionHeader("Escrituras Dictaminadas");
+
+    // Tarjetas de escrituras (bg-slate-50 p-4 rounded-lg border border-slate-100)
+    deeds.forEach((deed, idx) => {
+        const cardHeight = 28;
+        checkPageBreak(cardHeight + 5);
+        
+        // Card Background con bordes redondeados
+        doc.setFillColor(...colorSlate50);
+        doc.roundedRect(margin, yPos, contentWidth, cardHeight, 1.5, 1.5, 'F');
+        doc.setDrawColor(...colorSlate100);
+        doc.roundedRect(margin, yPos, contentWidth, cardHeight, 1.5, 1.5, 'S');
+
+        let rowY = yPos + 5;
+
+        // Tipo (text-xs font-bold text-blue-900 uppercase)
+        doc.setFontSize(7);
+        doc.setTextColor(...colorBlue900);
+        doc.setFont('helvetica', 'bold');
+        doc.text((deed.tipo || 'Escritura').toUpperCase(), margin + 4, rowY);
+        
+        rowY += 5;
+
+        // Grid 2 columnas para datos
+        const col1X = margin + 4;
+        const col2X = margin + (contentWidth / 2);
+        
+        // Número | Fecha
+        doc.setFontSize(6.5);
+        doc.setTextColor(...colorSlate500);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Número:", col1X, rowY);
+        doc.setTextColor(...colorSlate700);
+        doc.text(formatNumber(deed.numero) || '-', col1X + 14, rowY);
+        
+        doc.setTextColor(...colorSlate500);
+        doc.text("Fecha:", col2X, rowY);
+        doc.setTextColor(...colorSlate700);
+        doc.text(formatLongDate(deed.fecha) || '-', col2X + 12, rowY);
+        
+        rowY += 4;
+
+        // Fedatario (full width)
+        doc.setTextColor(...colorSlate500);
+        doc.text("Fedatario:", col1X, rowY);
+        doc.setTextColor(...colorSlate700);
+        doc.text(deed.fedatario || '-', col1X + 17, rowY);
+        
+        rowY += 4;
+
+        // Registro | Lugar
+        doc.setTextColor(...colorSlate500);
+        doc.text("Registro:", col1X, rowY);
+        doc.setTextColor(...colorSlate700);
+        doc.text(deed.registro || '-', col1X + 15, rowY);
+        
+        doc.setTextColor(...colorSlate500);
+        doc.text("Lugar:", col2X, rowY);
+        doc.setTextColor(...colorSlate700);
+        doc.text(deed.lugar || '-', col2X + 12, rowY);
+
+        yPos += cardHeight + 3;
+    });
+    yPos += 2;
+
+
+    // --- VII. DOCUMENTACIÓN DICTAMINADA ---
+    checkPageBreak(80);
+    yPos = drawSectionHeader("Documentación Dictaminada");
+    
+    // Grid de documentos (grid grid-cols-2 md:grid-cols-3 gap-2)
+    const docItems = [
+        { l: "Comp. Domicilio", v: formData.doc_comp_dom },
+        { l: "Acta Constitutiva", v: formData.doc_acta_const },
+        { l: "RPP Acta", v: formData.doc_rpp_acta },
+        { l: "RFC Constancia", v: formData.doc_rfc_const },
+        { l: "Otras Escrituras", v: formData.doc_otras_esc },
+        { l: "RPP Otras", v: formData.doc_rpp_otras }
+    ];
+
+    let dx = margin;
+    let dy = yPos;
+    const docW = (contentWidth / 3) - 3;
+    
+    docItems.forEach((d, i) => {
+        if (i > 0 && i % 3 === 0) {
+            dx = margin;
+            dy += 14;
+        }
+        
+        // Bloque centrado (bg-slate-50 p-2 rounded border border-slate-100 flex flex-col items-center text-center)
+        doc.setFillColor(...colorSlate50);
+        doc.roundedRect(dx, dy, docW, 12, 1, 1, 'F');
+        doc.setDrawColor(...colorSlate100);
+        doc.roundedRect(dx, dy, docW, 12, 1, 1, 'S');
+        
+        // Label (text-[10px] uppercase text-slate-500 font-bold)
+        doc.setFontSize(5.5);
+        doc.setTextColor(...colorSlate500);
+        doc.setFont('helvetica', 'bold');
+        doc.text(d.l.toUpperCase(), dx + docW/2, dy + 4, { align: 'center' });
+        
+        // Valor (text-sm font-bold) con color según valor
+        doc.setFontSize(8);
+        if (d.v && d.v.toUpperCase() === 'SI') {
+            doc.setTextColor(...colorGreen600);
+        } else {
+            doc.setTextColor(...colorSlate400);
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.text(d.v || '-', dx + docW/2, dy + 9, { align: 'center' });
+        
+        dx += docW + 4.5;
+    });
+    yPos = dy + 17;
+
+    // Tabla de personas documentadas
+    if (docPersons.length > 0) {
+        checkPageBreak(40);
+        doc.autoTable({
+            startY: yPos,
+            head: [['Persona', 'Identificación', 'CURP']],
+            body: docPersons.map(p => [p.name, p.identificacion, p.curp]),
+            theme: 'plain',
+            headStyles: { 
+                fillColor: colorSlate50, 
+                textColor: colorSlate500, 
+                fontSize: 6, 
+                fontStyle: 'bold',
+                cellPadding: 2
+            },
+            styles: { 
+                fontSize: 7, 
+                textColor: colorSlate700, 
+                cellPadding: 2,
+                lineColor: colorSlate100,
+                lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin }
+        });
+        yPos = doc.lastAutoTable.finalY + 5;
+    }
+
+
+    // --- VIII. OBSERVACIONES ---
+    if (formData.obs_sociedad || formData.obs_rep_legal) {
+        checkPageBreak(30);
+        yPos = drawSectionHeader("Observaciones");
+
+        // Bloques con border-l-4 border-slate-300
+        if (formData.obs_sociedad) {
+            const obsLines1 = doc.splitTextToSize(`"${formData.obs_sociedad}"`, contentWidth - 10);
+            const obsHeight1 = Math.max(14, (obsLines1.length * 3.5) + 8);
+            checkPageBreak(obsHeight1);
+            drawBlock("De la Sociedad", `"${formData.obs_sociedad}"`, margin, yPos, contentWidth, obsHeight1, colorSlate300, false);
+            yPos += obsHeight1 + 3;
+        }
+        
+        if (formData.obs_rep_legal) {
+            const obsLines2 = doc.splitTextToSize(`"${formData.obs_rep_legal}"`, contentWidth - 10);
+            const obsHeight2 = Math.max(14, (obsLines2.length * 3.5) + 8);
+            checkPageBreak(obsHeight2);
+            drawBlock("Del Representante Legal", `"${formData.obs_rep_legal}"`, margin, yPos, contentWidth, obsHeight2, colorSlate300, false);
+            yPos += obsHeight2 + 3;
+        }
+    }
+
+
+    // --- IX. CUESTIONAMIENTOS ---
+    checkPageBreak(30);
+    yPos = drawSectionHeader("Cuestionamientos");
+    
+    // Items con diseño: flex justify-between items-center text-xs py-2 border-b border-slate-300
+    for (let i = 1; i <= 13; i++) {
+        const question = getQuestionLabel(i);
+        const answer = formData[`q${i}`] || '-';
+        
+        // Pregunta (text-slate-600 leading-tight)
+        doc.setFontSize(7);
+        doc.setTextColor(...colorSlate600);
+        doc.setFont('helvetica', 'normal');
+        
+        const qLines = doc.splitTextToSize(`${i}. ${question}`, contentWidth - 20);
+        doc.text(qLines, margin + 2, yPos);
+        
+        // Respuesta (font-bold text-blue-900 o text-red-500)
+        doc.setFont('helvetica', 'bold');
+        if (answer === 'No' || answer === 'NO') {
+            doc.setTextColor(239, 68, 68); // red-500
+        } else {
+            doc.setTextColor(...colorBlue900);
+        }
+        doc.text(answer, pageWidth - margin - 2, yPos, { align: 'right' });
+        
+        // Línea divisora (border-b border-slate-300)
+        const lineY = yPos + (qLines.length * 3) + 1;
+        doc.setDrawColor(...colorSlate300);
+        doc.setLineWidth(0.2);
+        doc.line(margin, lineY, pageWidth - margin, lineY);
+        
+        yPos = lineY + 3;
+        checkPageBreak(12);
+    }
+    
+    yPos += 5;
+
+
+    // --- X. CONCLUSIÓN ---
+    checkPageBreak(60);
+    yPos = drawSectionHeader("Conclusión");
+
+    // Bloque de conclusión (bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300)
+    const concLines = doc.splitTextToSize(`"${formData.conclusion || 'Sin conclusión definida.'}"`, contentWidth - 10).length;
+    const concHeight = Math.max(14, (concLines * 3.5) + 8);
+    checkPageBreak(concHeight);
+    
+    drawBlock("Conclusión", `"${formData.conclusion || 'Sin conclusión definida.'}"`, margin, yPos, contentWidth, concHeight, colorSlate300, false);
+    
+    yPos += concHeight + 15;
+
+
+    // --- FIRMA ---
+    checkPageBreak(40);
+    
+    // Línea de firma centrada (pt-12 flex flex-col items-center)
+    const signatureY = yPos + 10;
+    doc.setDrawColor(...colorSlate400);
+    doc.setLineWidth(0.3);
+    doc.line(pageWidth/2 - 32, signatureY, pageWidth/2 + 32, signatureY);
+    
+    // Empresa (text-[10px] text-slate-500 uppercase tracking-widest)
+    doc.setFontSize(6);
+    doc.setTextColor(...colorSlate500);
+    doc.setFont('helvetica', 'normal');
+    doc.text("SOFIMAS CONSULTORES DEL NOROESTE S.A. DE C.V., SOFOM ENR", pageWidth/2, signatureY + 4, { align: 'center' });
+    
+    // Nombre firmante (text-sm font-bold text-slate-900)
+    doc.setFontSize(9);
+    doc.setTextColor(...colorSlate900);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formData.nombre_firmante || '', pageWidth/2, signatureY + 9, { align: 'center' });
+
+
+    // --- FOOTER (Pages) ---
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Footer similar al diseño web (bg-slate-50 px-8 py-4 border-t border-slate-100)
+        const footerY = doc.internal.pageSize.getHeight() - 12;
+        
+        doc.setFontSize(6);
+        doc.setTextColor(...colorSlate400);
+        doc.setFont('helvetica', 'normal');
+        doc.text(FIXED_COMPANY, margin, footerY);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.text("Documento generado para fines de evaluación de crédito", pageWidth/2, footerY, { align: 'center' });
+        
+        doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, footerY, { align: 'right' });
+    }
+
+    doc.save(`Dictamen_SOFIMAS_${formData.denominacion.substring(0,15)}.pdf`);
   };
 
   const handleFileImport = (e) => {
@@ -665,14 +1233,45 @@ export default function DictamenJuridico({ onBack }) {
 
         // Restore defaults if lists are empty (and not just empty in CSV, but user meant clear? Let's keep at least one empty row for UI)
         if (newLists.shareholders.length === 0) newLists.shareholders = [initialShareholder];
-        if (newLists.reps.length === 0) newLists.reps = [initialRep];
-        if (newLists.docPersons.length === 0) newLists.docPersons = [initialDocPerson];
+        if (newLists.reps.length === 0) newLists.reps = [{ ...initialRep, id: 1, _docPersonId: 1 }];
         if (newLists.deeds.length === 0) newLists.deeds = [initialDeed];
+        
+        // Vincular representantes con docPersons automáticamente
+        // Generar docPersons a partir de los representantes importados
+        let maxDocPersonId = newLists.docPersons.length > 0 
+            ? Math.max(...newLists.docPersons.map(p => p.id || 0)) 
+            : 0;
+        
+        const repsWithLinks = newLists.reps.map((rep, idx) => {
+            const docPersonId = maxDocPersonId + idx + 1;
+            return { ...rep, _docPersonId: docPersonId };
+        });
+        
+        // Crear entradas de docPersons para cada representante
+        const docPersonsFromReps = repsWithLinks.map(rep => ({
+            ...initialDocPerson,
+            id: rep._docPersonId,
+            _repId: rep.id,
+            name: rep.name || '',
+            sujeto: 'Representante Legal',
+            identificacion: rep.id_oficial || '',
+            curp: rep.curp || '',
+            rfc: rep.rfc || ''
+        }));
+        
+        // Combinar docPersons existentes (si vienen en CSV) con los generados de representantes
+        // Filtrar los que ya podrían estar vinculados para evitar duplicados
+        const existingDocPersons = newLists.docPersons.filter(p => !p._repId);
+        const finalDocPersons = [...existingDocPersons, ...docPersonsFromReps];
+        
+        if (finalDocPersons.length === 0) {
+            finalDocPersons.push({ ...initialDocPerson, id: 1, _repId: 1, sujeto: 'Representante Legal' });
+        }
         
         setFormData(newFormData);
         setShareholders(newLists.shareholders);
-        setReps(newLists.reps);
-        setDocPersons(newLists.docPersons);
+        setReps(repsWithLinks);
+        setDocPersons(finalDocPersons);
         setDeeds(newLists.deeds);
         setAdmins([initialAdmin]); // Not in CSV currently
 
@@ -745,7 +1344,31 @@ export default function DictamenJuridico({ onBack }) {
     document.body.removeChild(link);
   };
 
-  const handlePrint = () => generarPDF();
+  const handlePrint = () => {
+    // Robust image loading strategy
+    fetch(logo)
+      .then(res => {
+         if (!res.ok) throw new Error("Fetch failed");
+         return res.blob();
+      })
+      .then(blob => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const img = new Image();
+              img.src = reader.result;
+              img.onload = () => generarPDF(img);
+          };
+          reader.readAsDataURL(blob);
+      })
+      .catch(e => {
+         console.warn("Fetch failed, trying direct Image load", e);
+         const img = new Image();
+         img.crossOrigin = 'Anonymous';
+         img.src = logo;
+         img.onload = () => generarPDF(img);
+         img.onerror = () => generarPDF(null);
+      });
+  };
 
   const clearFormState = () => {
     setFormData(emptyFormData);
@@ -884,155 +1507,184 @@ export default function DictamenJuridico({ onBack }) {
     );
   }
 
+  // --- NUEVO DISEÑO CON SIDEBAR ---
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
-      {/* Top Header - Hidden in Print */}
-      <div className="bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm z-10 print:hidden">
-        <div className="flex items-center gap-4">
-            <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 flex items-center gap-1">
-              <ArrowLeft size={18} /> Volver a lista
-            </button>
-           <h1 className="text-xl font-bold text-[#1a4580]">Editor de Dictamen Jurídico</h1>
-        </div>
-        <div className="flex gap-2">
-            <button onClick={resetForm} className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-2 text-sm font-medium">
-                <RefreshCw size={16} /> Reiniciar
-            </button>
-            <label className="px-3 py-2 text-slate-600 hover:bg-blue-50 rounded-md flex items-center gap-2 text-sm font-medium cursor-pointer">
-                <Upload size={16} /> Cargar CSV
-                <input type="file" accept=".csv" className="hidden" onChange={handleFileImport} />
-            </label>
-            <button onClick={handleFileExport} className="px-3 py-2 text-slate-600 hover:bg-blue-50 rounded-md flex items-center gap-2 text-sm font-medium">
-                <Download size={16} /> Descargar CSV
-            </button>
-            <button className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-md flex items-center gap-2 text-sm font-medium">
-                <Save size={16} /> Guardar Borrador
-            </button>
-            <button onClick={handlePrint} className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-md flex items-center gap-2 text-sm font-bold shadow-sm">
-                <Printer size={18} /> IMPRIMIR PDF
-            </button>
-        </div>
-      </div>
-
-      <div className="dictamen-container">
-        {/* SIDEBAR EDIT */}
-        <div className="dictamen-sidebar print:hidden">
-            <div className="dictamen-sidebar-header">
-                <h2 className="text-[#1a4580] font-bold text-sm uppercase">Datos del Dictamen</h2>
-                <p className="text-xs text-slate-500 mt-1">Ingresa la información para generar el documento.</p>
-            </div>
-            
-            <div className="dictamen-scroll-content">
+    <div className="flex h-screen overflow-hidden bg-slate-100 font-sans">
+        
+        {/* SIDEBAR EDITABLE */}
+        <div className="w-[400px] bg-white border-r border-slate-200 flex flex-col h-full print:hidden z-20 shadow-xl shrink-0">
+             {/* Header Sidebar */}
+             <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <div>
+                    <h2 className="text-[#1a4580] font-bold text-sm uppercase">Editar Datos</h2>
+                    <p className="text-[10px] text-slate-500">Llene la información requerida.</p>
+                </div>
+                <button onClick={() => setViewMode('list')} className="text-slate-400 hover:text-slate-600">
+                    <ArrowLeft size={16} />
+                </button>
+             </div>
+             
+             {/* Scrollable Form Content */}
+             <div className="flex-1 overflow-y-auto custom-scrollbar">
+                
                 {/* I. Denominación */}
                 <SectionToggle title="I. Denominación" isOpen={sections.denominacion} onToggle={() => toggleSection('denominacion')} isInvalid={sectionInvalid.denominacion}>
-                     <div className="dictamen-group">
-                        <label className="dictamen-label">Fecha Documento</label>
+                     <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">Fecha Documento</label>
                         <input type="date" name="fechaDocumento" value={formData.fechaDocumento} onChange={handleInputChange} className={getInputClass(formData.fechaDocumento)} />
                     </div>
-                    <div className="dictamen-group">
-                        <label className="dictamen-label">Denominación</label>
-                        <input className={getInputClass(formData.denominacion)} name="denominacion" value={formData.denominacion} onChange={handleInputChange} />
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">Denominación</label>
+                        <textarea className={getTextareaClass(formData.denominacion)} name="denominacion" value={formData.denominacion} onChange={handleInputChange} />
                     </div>
                 </SectionToggle>
 
                 {/* II. Objetivo */}
                 <SectionToggle title="II. Objetivo" isOpen={sections.objetivo} onToggle={() => toggleSection('objetivo')} isInvalid={sectionInvalid.objetivo}>
-                    <div className="dictamen-group">
-                        <label className="dictamen-label">Objetivo</label>
-                        <textarea className={getTextareaClass(formData.objetivo)} name="objetivo" value={formData.objetivo} onChange={handleInputChange} />
+                    <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600">Objetivo</label>
+                        <textarea className={getTextareaClass(formData.objetivo) + " h-24"} name="objetivo" value={formData.objetivo} onChange={handleInputChange} />
                     </div>
                 </SectionToggle>
 
                 {/* III. Antecedentes */}
-                <SectionToggle title="III. Antecedentes - Constitución" isOpen={sections.antecedentes} onToggle={() => toggleSection('antecedentes')} isInvalid={sectionInvalid.antecedentes}>
-                    <div className="dictamen-row-inputs">
+                <SectionToggle title="III. Antecedentes" isOpen={sections.antecedentes} onToggle={() => toggleSection('antecedentes')} isInvalid={sectionInvalid.antecedentes}>
+                    <div className="grid grid-cols-2 gap-2">
                         <input className={getInputClass(formData.ant_escritura)} placeholder="Escritura" name="ant_escritura" value={formData.ant_escritura} onChange={handleInputChange} />
                         <input className={getInputClass(formData.ant_volumen)} placeholder="Volumen" name="ant_volumen" value={formData.ant_volumen} onChange={handleInputChange} />
                     </div>
-                    <div className="dictamen-group"><label className="dictamen-label">Fecha</label><input className={getInputClass(formData.ant_fecha)} name="ant_fecha" value={formData.ant_fecha} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Fedatario</label><input className={getInputClass(formData.ant_fedatario)} name="ant_fedatario" value={formData.ant_fedatario} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">No. Fedatario</label><input className={getInputClass(formData.ant_num_fedatario)} name="ant_num_fedatario" value={formData.ant_num_fedatario} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Circunscripción</label><input className={getInputClass(formData.ant_circunscripcion)} name="ant_circunscripcion" value={formData.ant_circunscripcion} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Registro Público</label><input className={getInputClass(formData.ant_registro)} name="ant_registro" value={formData.ant_registro} onChange={handleInputChange} /></div>
-                    <div className="dictamen-row-inputs">
-                        <input className={getInputClass(formData.ant_fecha_reg)} placeholder="Fecha Reg." name="ant_fecha_reg" value={formData.ant_fecha_reg} onChange={handleInputChange} />
+                    <input className={getInputClass(formData.ant_fecha)} type="date" placeholder="Fecha Escritura" name="ant_fecha" value={formData.ant_fecha} onChange={handleInputChange} />
+                    <input className={getInputClass(formData.ant_fedatario)} placeholder="Fedatario" name="ant_fedatario" value={formData.ant_fedatario} onChange={handleInputChange} />
+                    <input className={getInputClass(formData.ant_num_fedatario)} placeholder="No. Fedatario" name="ant_num_fedatario" value={formData.ant_num_fedatario} onChange={handleInputChange} />
+                    <input className={getInputClass(formData.ant_circunscripcion)} placeholder="Circunscripción" name="ant_circunscripcion" value={formData.ant_circunscripcion} onChange={handleInputChange} />
+                    <input className={getInputClass(formData.ant_registro)} placeholder="Registro Público" name="ant_registro" value={formData.ant_registro} onChange={handleInputChange} />
+                    <div className="grid grid-cols-2 gap-2">
+                        <input className={getInputClass(formData.ant_fecha_reg)} type="date" placeholder="Fecha Reg." name="ant_fecha_reg" value={formData.ant_fecha_reg} onChange={handleInputChange} />
                         <input className={getInputClass(formData.ant_lugar_reg)} placeholder="Lugar Reg." name="ant_lugar_reg" value={formData.ant_lugar_reg} onChange={handleInputChange} />
                     </div>
+                    <input className={getInputClass(formData.ant_domicilio)} placeholder="Domicilio" name="ant_domicilio" value={formData.ant_domicilio} onChange={handleInputChange} />
                 </SectionToggle>
 
                 {/* III. Cuadro Accionario */}
                 <SectionToggle title="III. Cuadro Accionario" isOpen={sections.accionistas} onToggle={() => toggleSection('accionistas')} isInvalid={sectionInvalid.accionistas}>
                      {shareholders.map((person, index) => (
-                         <div key={person.id} className="card-dynamic">
-                             <button className="btn-del" onClick={() => removeItem(setShareholders, shareholders, person.id)}>X</button>
-                             <input className={getInputClass(person.name) + " mb-2"} placeholder="Nombre Accionista" value={person.name} onChange={(e) => updateItem(setShareholders, shareholders, person.id, 'name', e.target.value)} />
-                             <div className="dictamen-row-inputs">
+                         <div key={person.id} className="bg-white p-3 border border-slate-200 rounded mb-2 relative">
+                             <button className="absolute top-2 right-2 text-red-400 hover:text-red-600" onClick={() => removeItem(setShareholders, shareholders, person.id)}><Trash2 size={12}/></button>
+                             <input className={getInputClass(person.name) + " mb-2 font-bold"} placeholder="Nombre Accionista" value={person.name} onChange={(e) => updateItem(setShareholders, shareholders, person.id, 'name', e.target.value)} />
+                             <div className="grid grid-cols-3 gap-2">
                                  <input className={getInputClass(person.acciones)} placeholder="Acciones" value={person.acciones} onChange={(e) => updateItem(setShareholders, shareholders, person.id, 'acciones', e.target.value)} />
                                  <input className={getInputClass(person.valor)} placeholder="Valor ($)" value={person.valor} onChange={(e) => updateItem(setShareholders, shareholders, person.id, 'valor', e.target.value)} />
                                  <input className={getInputClass(person.porcentaje)} placeholder="%" type="number" value={person.porcentaje} onChange={(e) => updateItem(setShareholders, shareholders, person.id, 'porcentaje', e.target.value)} />
                              </div>
                          </div>
                      ))}
-                     <button className="btn-add" onClick={() => addItem(setShareholders, shareholders, initialShareholder)}>+ Agregar Accionista</button>
-                     <div className={`text-center font-bold text-xs p-2 rounded ${Math.abs(totalPercentage - 100) < 0.1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        Total: {totalPercentage}% {Math.abs(totalPercentage - 100) > 0.1 && '(Debe sumar 100%)'}
+                     <button className="w-full py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded hover:bg-blue-100" onClick={() => addItem(setShareholders, shareholders, initialShareholder)}>+ Agregar Accionista</button>
+                     <div className={`mt-2 text-center text-xs p-1 rounded ${Math.abs(totalPercentage - 100) < 0.1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        Total: {totalPercentage}%
                      </div>
                 </SectionToggle>
 
                  {/* III. Objeto Social y SAT */}
                  <SectionToggle title="III. Objeto Social y SAT" isOpen={sections.objeto} onToggle={() => toggleSection('objeto')} isInvalid={sectionInvalid.objeto}>
-                    <div className="dictamen-group"><label className="dictamen-label">Facultad Títulos</label><input className={getInputClass(formData.obj_titulos)} name="obj_titulos" value={formData.obj_titulos} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Facultad Arrendamiento</label><input className={getInputClass(formData.obj_arrendamiento)} name="obj_arrendamiento" value={formData.obj_arrendamiento} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Facultad Factoraje</label><input className={getInputClass(formData.obj_factoraje)} name="obj_factoraje" value={formData.obj_factoraje} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Descripción</label><textarea className={getTextareaClass(formData.obj_descripcion) + " h-24"} name="obj_descripcion" value={formData.obj_descripcion} onChange={handleInputChange} /></div>
-                    <div className="border-t border-slate-200 my-2 pt-2">
-                        <div className="dictamen-group"><label className="dictamen-label">SAT RFC</label><input className={getInputClass(formData.sat_rfc)} name="sat_rfc" value={formData.sat_rfc} onChange={handleInputChange} /></div>
-                        <div className="dictamen-group"><label className="dictamen-label">SAT Domicilio</label><textarea className={getTextareaClass(formData.sat_domicilio)} name="sat_domicilio" value={formData.sat_domicilio} onChange={handleInputChange} /></div>
+                    <div className="space-y-1">
+                        <input className={getInputClass(formData.obj_titulos)} placeholder="Fac. Títulos" name="obj_titulos" value={formData.obj_titulos} onChange={handleInputChange} />
+                        <input className={getInputClass(formData.obj_arrendamiento)} placeholder="Fac. Arrendamiento" name="obj_arrendamiento" value={formData.obj_arrendamiento} onChange={handleInputChange} />
+                        <input className={getInputClass(formData.obj_factoraje)} placeholder="Fac. Factoraje" name="obj_factoraje" value={formData.obj_factoraje} onChange={handleInputChange} />
+                        <textarea className={getTextareaClass(formData.obj_descripcion) + " h-20"} placeholder="Descripción Objeto" name="obj_descripcion" value={formData.obj_descripcion} onChange={handleInputChange} />
+                    </div>
+                    <div className="border-t border-slate-200 my-1 pt-1 space-y-1">
+                        <input className={getInputClass(formData.sat_rfc)} placeholder="SAT RFC" name="sat_rfc" value={formData.sat_rfc} onChange={handleInputChange} />
+                        <textarea className={getTextareaClass(formData.sat_domicilio)} placeholder="SAT Domicilio" name="sat_domicilio" value={formData.sat_domicilio} onChange={handleInputChange} />
                     </div>
                 </SectionToggle>
 
                 {/* IV. Representación Legal */}
                 <SectionToggle title="IV. Representación Legal" isOpen={sections.representacion} onToggle={() => toggleSection('representacion')} isInvalid={sectionInvalid.representacion}>
                      {reps.map((rep) => (
-                         <div key={rep.id} className="card-dynamic">
+                         <div key={rep.id} className="bg-white p-3 border border-slate-200 rounded mb-2 relative">
                              <div className="font-bold text-[10px] text-blue-800 mb-1">REPRESENTANTE #{rep.id}</div>
-                             <button className="btn-del" onClick={() => removeItem(setReps, reps, rep.id)}>X</button>
+                             <button className="absolute top-2 right-2 text-red-400" onClick={() => removeRepresentante(rep.id)}><Trash2 size={12}/></button>
                              
-                             <div className="dictamen-row-inputs">
-                                <input className={getInputClass(rep.name)} placeholder="Nombre" value={rep.name} onChange={(e) => updateItem(setReps, reps, rep.id, 'name', e.target.value)} />
-                                <input className={getInputClass(rep.cargo)} placeholder="Cargo" value={rep.cargo} onChange={(e) => updateItem(setReps, reps, rep.id, 'cargo', e.target.value)} />
+                             <div className="grid grid-cols-2 gap-2 mb-2">
+                                <input className={getInputClass(rep.name)} placeholder="Nombre" value={rep.name} onChange={(e) => updateRepresentante(rep.id, 'name', e.target.value)} />
+                                <input className={getInputClass(rep.cargo)} placeholder="Cargo" value={rep.cargo} onChange={(e) => updateRepresentante(rep.id, 'cargo', e.target.value)} />
                              </div>
-                             <div className="dictamen-row-inputs">
-                                <input className={getInputClass(rep.rfc)} placeholder="RFC" value={rep.rfc} onChange={(e) => updateItem(setReps, reps, rep.id, 'rfc', e.target.value)} />
-                                <input className={getInputClass(rep.id_oficial)} placeholder="ID Oficial" value={rep.id_oficial} onChange={(e) => updateItem(setReps, reps, rep.id, 'id_oficial', e.target.value)} />
+                             <div className="grid grid-cols-2 gap-2 mb-2">
+                                <input className={getInputClass(rep.rfc)} placeholder="RFC" value={rep.rfc} onChange={(e) => updateRepresentante(rep.id, 'rfc', e.target.value)} />
+                                <input className={getInputClass(rep.id_oficial)} placeholder="ID Oficial" value={rep.id_oficial} onChange={(e) => updateRepresentante(rep.id, 'id_oficial', e.target.value)} />
                              </div>
-                             <input className={getInputClass(rep.domicilio) + " mb-2"} placeholder="Domicilio" value={rep.domicilio} onChange={(e) => updateItem(setReps, reps, rep.id, 'domicilio', e.target.value)} />
+                             <div className="grid grid-cols-1 gap-2 mb-2">
+                                <input className={getInputClass(rep.curp)} placeholder="CURP" value={rep.curp} onChange={(e) => updateRepresentante(rep.id, 'curp', e.target.value)} />
+                             </div>
+                             <input className={getInputClass(rep.domicilio) + " mb-2"} placeholder="Domicilio" value={rep.domicilio} onChange={(e) => updateRepresentante(rep.id, 'domicilio', e.target.value)} />
                              
-                             <label className="dictamen-label mt-2">Escritura Poder</label>
-                             <div className="dictamen-row-inputs">
-                                <input className={getInputClass(rep.escritura)} placeholder="Num" value={rep.escritura} onChange={(e) => updateItem(setReps, reps, rep.id, 'escritura', e.target.value)} />
-                                <input className={getInputClass(rep.fecha)} placeholder="Fecha" value={rep.fecha} onChange={(e) => updateItem(setReps, reps, rep.id, 'fecha', e.target.value)} />
+                             <div className="bg-slate-50 p-2 rounded text-xs space-y-2">
+                                <label className="font-bold text-slate-400 block">Poderes y Escritura</label>
+                                
+                                <textarea className={getTextareaClass(rep.tipo_poderes)} placeholder="Tipo de Poderes" value={rep.tipo_poderes} onChange={(e) => updateRepresentante(rep.id, 'tipo_poderes', e.target.value)} />
+                                
+                                <input className={getInputClass(rep.tipo_escritura)} placeholder="Tipo de Escritura (Ej. Acta Constitutiva / Poder Notarial)" value={rep.tipo_escritura} onChange={(e) => updateRepresentante(rep.id, 'tipo_escritura', e.target.value)} />
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input className={getInputClass(rep.escritura)} placeholder="Num. Escritura" value={rep.escritura} onChange={(e) => updateRepresentante(rep.id, 'escritura', e.target.value)} />
+                                    <input className={getInputClass(rep.volumen)} placeholder="Volumen" value={rep.volumen} onChange={(e) => updateRepresentante(rep.id, 'volumen', e.target.value)} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                     <input className={getInputClass(rep.fecha)} type="date" placeholder="Fecha Escritura" value={rep.fecha} onChange={(e) => updateRepresentante(rep.id, 'fecha', e.target.value)} />
+                                     <input className={getInputClass(rep.fecha_registro)} type="date" placeholder="Fecha Registro" value={rep.fecha_registro} onChange={(e) => updateRepresentante(rep.id, 'fecha_registro', e.target.value)} />
+                                </div>
+                                <input className={getInputClass(rep.fedatario)} placeholder="Fedatario" value={rep.fedatario} onChange={(e) => updateRepresentante(rep.id, 'fedatario', e.target.value)} />
+                                <input className={getInputClass(rep.registro)} placeholder="Datos Registro Público" value={rep.registro} onChange={(e) => updateRepresentante(rep.id, 'registro', e.target.value)} />
                              </div>
-                             <input className={getInputClass(rep.fedatario) + " mb-1"} placeholder="Fedatario" value={rep.fedatario} onChange={(e) => updateItem(setReps, reps, rep.id, 'fedatario', e.target.value)} />
                          </div>
                      ))}
-                     <button className="btn-add bg-cyan-600" onClick={() => addItem(setReps, reps, initialRep)}>+ Agregar Representante</button>
+                     <button className="w-full py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded hover:bg-blue-100" onClick={addRepresentante}>+ Agregar Representante</button>
+                </SectionToggle>
+
+                {/* V. Administración */}
+                <SectionToggle title="V. Administración" isOpen={sections.administracion} onToggle={() => toggleSection('administracion')} isInvalid={sectionInvalid.administracion}>
+                     {admins.map((admin) => (
+                         <div key={admin.id} className="bg-white p-3 border border-slate-200 rounded mb-2 relative">
+                             <button className="absolute top-2 right-2 text-red-400" onClick={() => removeItem(setAdmins, admins, admin.id)}><Trash2 size={12}/></button>
+                             <input className={getInputClass(admin.name) + " mb-2 font-bold"} placeholder="Nombre Administrador" value={admin.name} onChange={(e) => updateItem(setAdmins, admins, admin.id, 'name', e.target.value)} />
+                             <div className="grid grid-cols-2 gap-2">
+                                 <input className={getInputClass(admin.cargo)} placeholder="Cargo" value={admin.cargo} onChange={(e) => updateItem(setAdmins, admins, admin.id, 'cargo', e.target.value)} />
+                                 <div className="flex gap-2">
+                                     <div className="flex flex-col flex-1">
+                                        <label className="text-[10px] text-slate-500">¿Es Socio?</label>
+                                        <select className={getSmallSelectClass(admin.es_socio) + " w-full"} value={admin.es_socio} onChange={(e) => updateItem(setAdmins, admins, admin.id, 'es_socio', e.target.value)}>
+                                            <option value="si">SI</option><option value="no">NO</option>
+                                        </select>
+                                     </div>
+                                     {admin.es_socio === 'si' && (
+                                         <div className="flex flex-col w-20">
+                                            <label className="text-[10px] text-slate-500">% Acc.</label>
+                                            <input className={getSmallSelectClass(admin.porcentaje)} placeholder="%" value={admin.porcentaje} onChange={(e) => updateItem(setAdmins, admins, admin.id, 'porcentaje', e.target.value)} />
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                         </div>
+                     ))}
+                     <button className="w-full py-2 bg-blue-50 text-blue-600 text-xs font-bold rounded hover:bg-blue-100" onClick={() => addItem(setAdmins, admins, initialAdmin)}>+ Agregar Administrador</button>
                 </SectionToggle>
 
                 {/* V. Observaciones */}
                 <SectionToggle title="V. Observaciones" isOpen={sections.observaciones} onToggle={() => toggleSection('observaciones')} isInvalid={sectionInvalid.observaciones}>
-                    <div className="dictamen-group"><label className="dictamen-label">Obs. Sociedad</label><textarea className={getTextareaClass(formData.obs_sociedad) + " h-20"} name="obs_sociedad" value={formData.obs_sociedad} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group"><label className="dictamen-label">Obs. Rep. Legal</label><textarea className={getTextareaClass(formData.obs_rep_legal) + " h-20"} name="obs_rep_legal" value={formData.obs_rep_legal} onChange={handleInputChange} /></div>
+                    <div className="space-y-2">
+                        <textarea className={getTextareaClass(formData.obs_sociedad) + " h-20"} placeholder="Obs. Sociedad" name="obs_sociedad" value={formData.obs_sociedad} onChange={handleInputChange} />
+                        <textarea className={getTextareaClass(formData.obs_rep_legal) + " h-20"} placeholder="Obs. Rep. Legal" name="obs_rep_legal" value={formData.obs_rep_legal} onChange={handleInputChange} />
+                    </div>
                 </SectionToggle>
 
                 {/* VI. Cuestionamientos */}
                 <SectionToggle title="VI. Cuestionamientos" isOpen={sections.cuestionamientos} onToggle={() => toggleSection('cuestionamientos')} isInvalid={sectionInvalid.cuestionamientos}>
                     {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(n => (
-                        <div key={n} className="flex justify-between items-center mb-1 text-xs">
-                           <span className="text-slate-600 w-3/4 truncate">
+                        <div key={n} className="flex justify-between items-center mb-1 text-xs border-b border-slate-50 py-1">
+                           <span className="text-slate-600 w-3/4 leading-tight">
                              {n}. {getQuestionLabel(n)}
                            </span>
-                           <select className={getSmallSelectClass(formData[`q${n}`])} name={`q${n}`} value={formData[`q${n}`]} onChange={handleInputChange}>
+                           <select className={getSmallSelectClass(formData[`q${n}`]) + " w-16"} name={`q${n}`} value={formData[`q${n}`]} onChange={handleInputChange}>
                                <option value=""></option><option>Si</option><option>No</option><option>N/A</option>
                            </select>
                         </div>
@@ -1046,7 +1698,7 @@ export default function DictamenJuridico({ onBack }) {
                              const keys = ['doc_comp_dom', 'doc_acta_const', 'doc_rpp_acta', 'doc_otras_esc', 'doc_rpp_otras', 'doc_rfc_const'];
                              return (
                                 <div key={label} className="flex flex-col">
-                                    <label className="text-[10px] lowercase text-slate-500">{label}</label>
+                                    <label className="text-[10px] text-slate-500">{label}</label>
                                     <select className={getSmallSelectClass(formData[keys[idx]])} name={keys[idx]} value={formData[keys[idx]]} onChange={handleInputChange}>
                                         <option value=""></option><option>SI</option><option>NO</option><option>N/A</option>
                                     </select>
@@ -1055,302 +1707,450 @@ export default function DictamenJuridico({ onBack }) {
                         })}
                      </div>
                      
-                     <div className="text-[10px] font-bold text-slate-500 mb-2 uppercase">Personas Identificadas</div>
+                     <div className="text-[10px] font-bold text-slate-500 mb-2 uppercase border-t border-slate-200 pt-2">Personas Identificadas</div>
                      {docPersons.map((p) => (
-                         <div key={p.id} className="card-dynamic">
-                             <button className="btn-del" onClick={() => removeItem(setDocPersons, docPersons, p.id)}>X</button>
-                             <input className={getInputClass(p.name) + " mb-1"} placeholder="Nombre" value={p.name} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'name', e.target.value)} />
-                             <div className="dictamen-row-inputs">
-                                 <input className={getInputClass(p.identificacion)} placeholder="ID (INE/Pasaporte)" value={p.identificacion} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'identificacion', e.target.value)} />
-                                 <select className={getSelectClass(p.comp_dom) + " w-20"} value={p.comp_dom || ''} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'comp_dom', e.target.value)}>
-                                     <option value=""></option><option value="SI">Dom: SI</option><option value="NO">NO</option>
+                         <div key={p.id} className="bg-white p-2 border border-slate-200 rounded mb-2 relative">
+                             <button className="absolute top-1 right-1 text-slate-400 hover:text-red-500" onClick={() => removeItem(setDocPersons, docPersons, p.id)}><Trash2 size={12}/></button>
+                             <input className={getInputClass(p.name) + " mb-1 text-xs"} placeholder="Nombre" value={p.name} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'name', e.target.value)} />
+                             <div className="flex gap-1">
+                                 <input className={getInputClass(p.identificacion) + " text-xs flex-1"} placeholder="ID" value={p.identificacion} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'identificacion', e.target.value)} />
+                                 <select className={getSelectClass(p.comp_dom) + " w-16 text-xs"} value={p.comp_dom || ''} onChange={(e) => updateItem(setDocPersons, docPersons, p.id, 'comp_dom', e.target.value)}>
+                                     <option value="">Dom</option><option value="SI">SI</option><option value="NO">NO</option>
                                  </select>
                              </div>
                          </div>
                      ))}
-                     <button className="btn-add bg-slate-500" onClick={() => addItem(setDocPersons, docPersons, initialDocPerson)}>+ Persona</button>
+                     <button className="w-full py-1 bg-slate-100 text-slate-600 text-xs rounded hover:bg-slate-200" onClick={() => addItem(setDocPersons, docPersons, initialDocPerson)}>+ Persona</button>
                 </SectionToggle>
 
                 {/* IX. Escrituras */}
-                 <SectionToggle title="IX. Escrituras Dictaminadas" isOpen={sections.escrituras} onToggle={() => toggleSection('escrituras')} isInvalid={sectionInvalid.escrituras}>
+                 <SectionToggle title="IX. Escrituras Dict." isOpen={sections.escrituras} onToggle={() => toggleSection('escrituras')} isInvalid={sectionInvalid.escrituras}>
                      {deeds.map((deed) => (
-                         <div key={deed.id} className="card-dynamic">
-                             <button className="btn-del" onClick={() => removeItem(setDeeds, deeds, deed.id)}>X</button>
-                             <div className="dictamen-row-inputs">
-                                 <select className={getSelectClass(deed.tipo) + " w-1/2"} value={deed.tipo || ''} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'tipo', e.target.value)}>
-                                     <option value=""></option><option>Acta Constitutiva</option><option>Acta de Asamblea</option><option>Poderes</option>
+                         <div key={deed.id} className="bg-white p-2 border border-slate-200 rounded mb-2 relative text-xs">
+                             <button className="absolute top-1 right-1 text-slate-400 hover:text-red-500" onClick={() => removeItem(setDeeds, deeds, deed.id)}><Trash2 size={12}/></button>
+                             <div className="space-y-1">
+                                 <select className={getSelectClass(deed.tipo) + " w-full"} value={deed.tipo || ''} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'tipo', e.target.value)}>
+                                     <option value="">Tipo Escritura...</option><option>Acta Constitutiva</option><option>Acta de Asamblea</option><option>Poderes</option>
                                  </select>
-                                 <input className={getInputClass(deed.numero) + " w-1/2"} placeholder="Numero" value={deed.numero} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'numero', e.target.value)} />
-                             </div>
-                             <div className="dictamen-row-inputs">
-                                 <input className={getInputClass(deed.fecha)} placeholder="Fecha" value={deed.fecha} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'fecha', e.target.value)} />
+                                 <input className={getInputClass(deed.numero)} placeholder="Numero" value={deed.numero} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'numero', e.target.value)} />
+                                 <input className={getInputClass(deed.fecha)} type="date" placeholder="Fecha" value={deed.fecha} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'fecha', e.target.value)} />
                                  <input className={getInputClass(deed.fedatario)} placeholder="Fedatario" value={deed.fedatario} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'fedatario', e.target.value)} />
+                                 <input className={getInputClass(deed.lugar)} placeholder="Lugar" value={deed.lugar} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'lugar', e.target.value)} />
+                                 <input className={getInputClass(deed.registro)} placeholder="Datos Registro Público" value={deed.registro} onChange={(e) => updateItem(setDeeds, deeds, deed.id, 'registro', e.target.value)} />
                              </div>
                          </div>
                      ))}
-                     <button className="btn-add bg-indigo-400" onClick={() => addItem(setDeeds, deeds, initialDeed)}>+ Escritura</button>
+                     <button className="w-full py-2 bg-indigo-50 text-indigo-600 text-xs font-bold rounded hover:bg-indigo-100" onClick={() => addItem(setDeeds, deeds, initialDeed)}>+ Escritura</button>
                 </SectionToggle>
 
                 {/* X. Conclusión */}
                 <SectionToggle title="X. Conclusión y Firma" isOpen={sections.conclusion} onToggle={() => toggleSection('conclusion')} isInvalid={sectionInvalid.conclusion}>
-                    <div className="dictamen-group"><label className="dictamen-label">Conclusión</label><input className={getInputClass(formData.conclusion)} name="conclusion" value={formData.conclusion} onChange={handleInputChange} /></div>
-                    <div className="dictamen-group">
-                        <label className="dictamen-label">Lugar y Fecha</label>
-                        <div className="dictamen-input bg-slate-100 text-slate-500 text-xs flex items-center px-1">
-                            Hermosillo, Sonora a {formatLongDate(formData.fechaDocumento)}
-                        </div>
-                    </div>
-                    <div className="dictamen-group">
-                        <label className="dictamen-label">Nombre Firmante</label>
+                    <div className="space-y-2">
+                        <textarea className={getInputClass(formData.conclusion)} placeholder="Conclusión" name="conclusion" value={formData.conclusion} onChange={handleInputChange} />
+                        <label className="text-xs text-slate-500 block">Lugar y Fecha: Hermosillo, Sonora a {formatLongDate(formData.fechaDocumento)}</label>
                         <select className={getSelectClass(formData.nombre_firmante)} name="nombre_firmante" value={formData.nombre_firmante} onChange={handleInputChange}>
-                             <option value=""></option>
+                             <option value="">Firmante...</option>
                              {AVAILABLE_SIGNERS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                    </div>
-                    <div className="dictamen-group">
-                        <label className="dictamen-label">Empresa</label>
-                        <input className="dictamen-input bg-slate-100 text-slate-500" name="empresa_firma" value={FIXED_COMPANY} readOnly />
                     </div>
                 </SectionToggle>
             </div>
         </div>
 
-        {/* PREVIEW AREA (The Sheet) */}
-        <div className="dictamen-preview bg-slate-700 flex flex-col items-center">
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-between w-[215.9mm] mb-4 text-white">
-                <button 
-                    onClick={prevSheet} 
-                    disabled={currentSheet === 1}
-                    className="p-2 bg-slate-600 rounded hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                    <ChevronLeft size={20} className="mr-1" /> Anterior
-                </button>
-                <div className="font-bold">Página {currentSheet} de {totalSheets}</div>
-                <button 
-                    onClick={nextSheet} 
-                    disabled={currentSheet === totalSheets}
-                    className="p-2 bg-slate-600 rounded hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                    Siguiente <ChevronRight size={20} className="ml-1" />
-                </button>
-            </div>
-
-            <div className="sheet relative min-h-[279.4mm]">
-                
-                {/* Header - Shown on Page 1 (or all? usually page 1 has full header, others simplified. Let's show on Page 1 only for now as typically requested) */}
-                {currentSheet === 1 && (
-                <div className="header">
-                    <div className="logo">
-                        <img src={logo} alt="SOFIMAS" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
-                    </div>
-                    <div className="h-info">
-                        <strong>Dictamen Jurídico</strong><br/>
-                        SOFIMAS Consultores del Noroeste S.A. de C.V. SOFOM E.N.R.<br/>
-                        Paseo Río Sonora Sur #205, Col. Proyecto Río Sonora 83270<br/>
-                        Hermosillo Sonora; www.sofimas.com
-                    </div>
-                    <div className="h-date">Fecha<br/><span>{formData.fechaDocumento}</span></div>
+        {/* CONTENIDO DERECHO (Reporte / Preview) */}
+        <div className="flex-1 overflow-y-auto bg-gray-100 relative w-full">
+             
+             {/* Toolbar Flotante */}
+             <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200 p-4 flex justify-between items-center shadow-sm print:hidden">
+                 <div className="flex gap-2">
+                    <button onClick={resetForm} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg flex items-center gap-2 text-xs" title="Reiniciar">
+                        <RefreshCw size={14} /> Reiniciar
+                    </button>
+                    <label className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg flex items-center gap-2 cursor-pointer text-xs" title="Cargar CSV">
+                        <Upload size={14} /> Importar
+                        <input type="file" accept=".csv" className="hidden" onChange={handleFileImport} />
+                    </label>
                 </div>
-                )}
-                
-                {/* Simplified Header for other pages if needed? For now, blank top margin is standard for 'continued' pages in some views, but let's stick to content */}
+                 <div className="flex gap-2">
+                    <button onClick={handleFileExport} className="py-1 px-3 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded shadow-sm text-xs font-medium flex items-center gap-2">
+                        <Download size={14} /> CSV
+                    </button>
+                    <button onClick={handlePrint} className="py-1 px-3 bg-blue-900 text-white rounded shadow-sm hover:bg-blue-800 transition-colors text-xs font-bold flex items-center gap-2">
+                        <Printer size={14} /> PDF
+                    </button>
+                 </div>
+             </div>
 
-                {/* Sections Page 1 */}
-                {currentSheet === 1 && (
-                <>
-                    <div className="sec-h">I.- Denominación de la Sociedad</div>
-                    <div className="sec-c high">{formData.denominacion}</div>
+            {/* DOCUMENTO VISUAL (Read-Onlyish styling but still connected to state for updates) */}
+             <div className="p-8 print:p-0 max-w-5xl mx-auto">
+                <div className="bg-white shadow-xl rounded-sm overflow-hidden border-t-8 border-blue-900 min-h-[1100px]">
+                    
+                    {/* HEADER */}
+                    <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div>
+                        <img src={logo} alt="SOFIMAS Logo" className="h-16 w-auto object-contain" />
+                    </div>
+                    <div className="mt-4 md:mt-0 text-right">
+                        <h2 className="text-2xl font-light text-blue-900 uppercase tracking-tight">Dictamen Jurídico</h2>
+                        <p className="text-sm text-gray-500 font-medium">{FIXED_COMPANY}</p>
+                        <p className="text-xs text-slate-400 mt-1">{formatLongDate(formData.fechaDocumento)}</p>
+                    </div>
+                    </div>
 
-                    <div className="sec-h">II.- Objetivo</div>
-                    <div className="sec-c">{formData.objetivo}</div>
+                    {/* CONTENIDO PRINCIPAL */}
+                    <div className="p-8 space-y-4">
+                    
+                    {/* SECCIÓN I: IDENTIFICACIÓN */}
+                    <div className="space-y-3">
+                        <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-blue-900">
+                            <p className="text-[10px] uppercase font-bold text-blue-900 mb-1">Denominación de la Sociedad</p>
+                            <div className="text-xl font-bold text-slate-900">{formData.denominacion || <span className="text-gray-300 italic">Sin denominación</span>}</div>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Objetivo del Dictamen</p>
+                            <p className="text-sm leading-relaxed italic text-slate-600">"{formData.objetivo || '...'}"</p>
+                        </div>
+                    </div>
 
-                    <div className="sec-h">III.- Antecedentes del Hecho</div>
-                    <table className="main-table">
-                        <tbody>
-                            <tr><td rowSpan="12" className="t-side">Constitución de la Sociedad:</td><td className="t-key">Número de escritura:</td><td className="t-val">{formData.ant_escritura}</td></tr>
-                            <tr><td className="t-key">Volumén:</td><td className="t-val">{formData.ant_volumen}</td></tr>
-                            <tr><td className="t-key">Fecha de Escritura Pública:</td><td className="t-val">{formData.ant_fecha}</td></tr>
-                            <tr><td className="t-key">Fedatario Público:</td><td className="t-val">{formData.ant_fedatario}</td></tr>
-                            <tr><td className="t-key">No de Fedatario Público:</td><td className="t-val">{formData.ant_num_fedatario}</td></tr>
-                            <tr><td className="t-key">Circunscripción:</td><td className="t-val">{formData.ant_circunscripcion}</td></tr>
-                            <tr><td className="t-key">Numero de Registro Público:</td><td className="t-val">{formData.ant_registro}</td></tr>
-                            <tr><td className="t-key">Fecha de Registro Público:</td><td className="t-val">{formData.ant_fecha_reg}</td></tr>
-                            <tr><td className="t-key">Lugar de Registro Público:</td><td className="t-val">{formData.ant_lugar_reg}</td></tr>
-                            <tr><td className="t-key">Duración de la Sociedad:</td><td className="t-val">{formData.ant_duracion}</td></tr>
-                            <tr><td className="t-key">Vigencia:</td><td className="t-val">{formData.ant_vigencia}</td></tr>
-                            <tr><td className="t-key">Domicilio:</td><td className="t-val">{formData.ant_domicilio}</td></tr>
-                            
-                            {/* Dynamic Shareholders Table inside Main Table */}
+                    {/* SECCIÓN II: ANTECEDENTES */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <Briefcase className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Antecedentes del Hecho</h4>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                            {[
+                                { label: "Escritura", val: formatNumber(formData.ant_escritura) },
+                                { label: "Volumen", val: formatNumber(formData.ant_volumen) },
+                                { label: "Fecha Pública", val: formatLongDate(formData.ant_fecha) },
+                                { label: "Fedatario", val: `${formData.ant_fedatario} (${formData.ant_num_fedatario || ''})` },
+                                { label: "Registro Público", val: formData.ant_registro },
+                                { label: "Fecha Registro", val: formatLongDate(formData.ant_fecha_reg) },
+                                { label: "Lugar Registro", val: formData.ant_lugar_reg },
+                                { label: "Circunscripción", val: formData.ant_circunscripcion },
+                                { label: "Duración Soc.", val: formData.ant_duracion },
+                                { label: "Vigencia", val: formData.ant_vigencia },
+                                { label: "Domicilio Social", val: formData.ant_domicilio }
+                            ].map((item, i) => (
+                                <div key={i} className="border-b border-gray-100 pb-2">
+                                <p className="text-[10px] uppercase font-bold text-gray-400">{item.label}</p>
+                                <p className="text-sm font-semibold text-slate-700 min-h-[20px]">{item.val}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* SECCIÓN III: ESTRUCTURA ACCIONARIA */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <User className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Cuadro Accionario Actual</h4>
+                        </div>
+                        <div className="overflow-hidden rounded-lg border border-slate-200">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
                             <tr>
-                                <td className="t-side">Cuadro Accionario Actual:</td>
-                                <td colSpan="2" style={{padding: 0, border: 'none'}}>
-                                    <table className="nested-table">
-                                        <thead><tr><td>Nombre</td><td>Acciones</td><td>Cantidad</td><td>Porcentaje</td></tr></thead>
-                                        <tbody>
-                                            {shareholders.map(sh => (
-                                                <tr key={sh.id} className="nested-row">
-                                                    <td>{sh.name}</td>
-                                                    <td>{sh.acciones}</td>
-                                                    <td>{sh.valor}</td>
-                                                    <td>{sh.porcentaje}%</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="nested-total">
-                                                <td>TOTAL</td>
-                                                <td>{totalShares}</td>
-                                                <td>${totalAmount.toLocaleString()}</td>
-                                                <td style={{color: Math.abs(totalPercentage - 100) > 0.1 ? 'red' : 'black'}}>{totalPercentage}%</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
+                                <th className="px-4 py-3">Nombre / Razón Social</th>
+                                <th className="px-4 py-3 text-center">Acciones</th>
+                                <th className="px-4 py-3 text-right">Cantidad</th>
+                                <th className="px-4 py-3 text-right">Porcentaje</th>
                             </tr>
-
-                            <tr><td rowSpan="5" className="t-side">Objeto Social:</td><td className="t-key-white">Facultad Títulos Crédito:</td><td className="t-val">{formData.obj_titulos}</td></tr>
-                            <tr><td className="t-key-white">Facultad Arrendamiento:</td><td className="t-val">{formData.obj_arrendamiento}</td></tr>
-                            <tr><td className="t-key-white">Facultad Factoraje:</td><td className="t-val">{formData.obj_factoraje}</td></tr>
-                            <tr><td className="t-key-white">Otros objetos:</td><td className="t-val">{formData.obj_otros}</td></tr>
-                            <tr><td colSpan="2" className="t-val" style={{textAlign: 'justify', padding: '8px'}}>{formData.obj_descripcion}</td></tr>
-
-                            <tr><td rowSpan="3" className="t-side">Datos Inscritos SAT:</td><td className="t-key-white">RFC:</td><td className="t-val">{formData.sat_rfc}</td></tr>
-                            <tr><td className="t-key-white">Domicilio Fiscal:</td><td className="t-val">{formData.sat_domicilio}</td></tr>
-                            <tr><td className="t-key-white">Actividad Económica:</td><td className="t-val">{formData.sat_actividad}</td></tr>
-                        </tbody>
-                    </table>
-                </>
-                )}
-
-                {/* Sections Page 2 */}
-                {currentSheet === 2 && (
-                <>
-                    <div className="sec-h">IV.- Representación Legal</div>
-                    {reps.map(rep => (
-                        <table key={rep.id} className="rep-table">
-                            <tbody>
-                                <tr><td rowSpan="4" className="rep-side">Datos Personales:</td><td className="rep-label">Nombre:</td><td className="rep-val">{rep.name}</td><td className="rep-label">Cargo:</td><td className="rep-val">{rep.cargo}</td></tr>
-                                <tr><td className="rep-label">RFC:</td><td className="rep-val">{rep.rfc}</td><td rowSpan="2" className="rep-label">ID Oficial:</td><td rowSpan="2" className="rep-val">{rep.id_oficial}</td></tr>
-                                <tr><td className="rep-label">CURP:</td><td className="rep-val">{rep.curp}</td></tr>
-                                <tr><td className="rep-label">Domicilio:</td><td colSpan="3" className="rep-val">{rep.domicilio}</td></tr>
-                                <tr><td rowSpan="3" className="rep-side">Escritura Pública:</td><td className="rep-label">Número:</td><td className="rep-val">{rep.escritura}</td><td className="rep-label">Fecha:</td><td className="rep-val">{rep.fecha}</td></tr>
-                                <tr><td className="rep-label">Volumén:</td><td className="rep-val">{rep.volumen}</td><td className="rep-label">Fedatario:</td><td className="rep-val">{rep.fedatario}</td></tr>
-                                <tr><td className="rep-label">Registro:</td><td className="rep-val">{rep.registro}</td><td className="rep-label">Fecha Reg:</td><td className="rep-val">{rep.fecha_registro}</td></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                            {shareholders.map((acc, i) => (
+                                <tr key={acc.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-2 font-medium">{acc.name}</td>
+                                <td className="px-4 py-2 text-center">{formatNumber(acc.acciones)}</td>
+                                <td className="px-4 py-2 text-right">{formatNumber(acc.valor)}</td>
+                                <td className="px-4 py-2 text-right font-bold text-blue-900">{acc.porcentaje}%</td>
+                                </tr>
+                            ))}
+                            <tr className="bg-slate-50 font-bold">
+                                <td className="px-4 py-3">TOTAL</td>
+                                <td className="px-4 py-3 text-center">{totalShares.toLocaleString('en-US')}</td>
+                                <td className="px-4 py-3 text-right">${totalAmount.toLocaleString('en-US')}</td>
+                                <td className="px-4 py-3 text-right text-blue-900">{totalPercentage}%</td>
+                            </tr>
                             </tbody>
                         </table>
-                    ))}
+                        </div>
+                    </section>
+                    
+                    {/* SECCIÓN: OBJETO SOCIAL */}
+                    {(formData.obj_descripcion || formData.obj_titulos) && (
+                    <section>
+                         <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                             <FileText className="text-blue-900" size={20} />
+                             <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Objeto Social</h4>
+                         </div>
 
-                    <div className="sec-h">V.- Observaciones</div>
-                    <table className="main-table">
-                        <tbody>
-                            <tr><td className="t-side" style={{width: '25%'}}>Observaciones de la Sociedad:</td><td className="t-val" style={{textAlign: 'justify', padding: '10px'}}>{formData.obs_sociedad}</td></tr>
-                            <tr><td className="t-side" style={{width: '25%'}}>Observaciones del Representante Legal:</td><td className="t-val" style={{textAlign: 'justify', padding: '10px'}}>{formData.obs_rep_legal}</td></tr>
-                        </tbody>
-                    </table>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                            {[
+                                { l: "Facultad para Títulos de Crédito", v: formData.obj_titulos },
+                                { l: "Facultad para Arrendamiento", v: formData.obj_arrendamiento },
+                                { l: "Facultad para Factoraje", v: formData.obj_factoraje },
+                                { l: "Otros Objetos Sociales", v: formData.obj_otros }
+                            ].map((item, i) => (
+                                <div key={i} className="bg-slate-50 p-3 rounded border border-slate-100 relative overflow-hidden group hover:border-blue-200 transition-colors">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 mb-2 relative z-10">{item.l}</p>
+                                    <p className="text-xs font-semibold text-slate-700 relative z-10 leading-relaxed">{item.v || <span className="text-slate-300 italic">No especificado</span>}</p>
+                                </div>
+                            ))}
+                         </div>
 
-                    <div className="sec-h">VI.- Cuestionamientos</div>
-                    <div className="sec-c">
-                        {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                            <div key={n} className="q-row"><span>{n}. {getQuestionLabel(n)}</span><span className="q-ans">{formData[`q${n}`]}</span></div>
+                         {formData.obj_descripcion && (
+                            <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300 mt-3">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Objeto Social Principal</p>
+                                <p className="text-sm leading-relaxed italic text-slate-600">"{formData.obj_descripcion}"</p>
+                            </div>
+                         )}
+                    </section>
+                    )}
+                    
+                    {/* SECCIÓN: DATOS SAT */}
+                    {(formData.sat_rfc || formData.sat_domicilio) && (
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <FileText className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Datos Inscritos ante el SAT</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">RFC</p>
+                                <p className="text-sm font-bold text-slate-900">{formData.sat_rfc || '-'}</p>
+                            </div>
+                            <div className="md:col-span-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Domicilio Fiscal</p>
+                                <p className="text-sm text-slate-800">{formData.sat_domicilio || '-'}</p>
+                            </div>
+                            <div className="col-span-1 md:col-span-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Actividad Económica</p>
+                                <p className="text-sm font-medium text-slate-700">{formData.sat_actividad || '-'}</p>
+                            </div>
+                        </div>
+                    </section>
+                    )}
+
+                    {/* SECCIÓN IV: REPRESENTACIÓN LEGAL */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <ClipboardCheck className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Representación Legal</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {reps.map((rep, i) => (
+                            <div key={rep.id} className="p-4 bg-slate-50 rounded-lg border border-slate-100 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-2 bg-blue-900 text-white text-[10px] font-bold rounded-bl-lg">
+                                    {rep.cargo || 'SIN CARGO'}
+                                </div>
+                                <p className="text-lg font-bold text-blue-900 mb-2">{rep.name}</p>
+                                <div className="space-y-1">
+                                    <p className="text-xs"><strong>RFC:</strong> {rep.rfc}</p>
+                                    <p className="text-xs"><strong>ID Oficial:</strong> {rep.id_oficial}</p>
+                                    <p className="text-xs"><strong>CURP:</strong> {rep.curp}</p>
+                                    <p className="text-xs flex items-start gap-1">
+                                    <MapPin size={12} className="mt-0.5 shrink-0" />
+                                    <span>{rep.domicilio}</span>
+                                    </p>
+
+                                    <div className="mt-2 pt-2 border-t border-slate-200">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Poderes</p>
+                                        {rep.tipo_poderes && <p className="text-xs text-slate-800 italic mb-2">{rep.tipo_poderes}</p>}
+                                        <div className="text-xs text-slate-600 grid grid-cols-2 gap-x-2 gap-y-1">
+                                            {rep.tipo_escritura && <p className="col-span-2"><span className="font-semibold text-blue-900">Tipo:</span> {rep.tipo_escritura}</p>}
+                                            <p><span className="font-semibold text-blue-900">Escritura:</span> {formatNumber(rep.escritura)}</p>
+                                            <p><span className="font-semibold text-blue-900">Volumen:</span> {formatNumber(rep.volumen)}</p>
+                                            <p><span className="font-semibold text-blue-900">Fecha:</span> {formatLongDate(rep.fecha)}</p>
+                                            <p><span className="font-semibold text-blue-900">Fecha Reg:</span> {formatLongDate(rep.fecha_registro)}</p>
+                                            <p className="col-span-2"><span className="font-semibold text-blue-900">Fedatario:</span> {rep.fedatario}</p>
+                                            <p className="col-span-2"><span className="font-semibold text-blue-900">Registro:</span> {rep.registro}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         ))}
-                    </div>
-                </>
-                )}
-
-                {/* Sections Page 3 */}
-                {currentSheet === 3 && (
-                <>
-                    <div className="sec-h">VII.- Documentación Dictaminada</div>
-                    <div className="sec-c" style={{padding: 0, border: 'none'}}>
-                        <div style={{background: '#cfdceb', padding: '5px', textAlign: 'center', fontWeight: 'bold', fontSize: '11px', border: '1px solid #000', borderTop: 'none'}}>Lista de Documentos Dictaminados.-</div>
-                        <table className="doc-table">
-                            <thead><tr><th className="col-wide">Denominación Social</th><th className="col-std">Comprobante domicilio</th><th className="col-std">Acta Constitutiva</th><th className="col-std">RPP Acta Constitutiva</th><th className="col-std">Otras Escrituras</th><th className="col-std">RPP otras Escrituras</th><th className="col-std">RFC/Constancia de</th></tr></thead>
-                            <tbody><tr>
-                                <td style={{fontWeight: 'bold', fontSize: '10px'}}>{formData.denominacion}</td>
-                                <td>{formData.doc_comp_dom}</td><td>{formData.doc_acta_const}</td><td>{formData.doc_rpp_acta}</td>
-                                <td>{formData.doc_otras_esc}</td><td>{formData.doc_rpp_otras}</td><td>{formData.doc_rfc_const}</td>
-                            </tr></tbody>
-                        </table>
-                        
-                        {/* Dynamic Table for People Documents */}
-                        {docPersons.length > 0 && (
-                            <table className="doc-table" style={{marginTop: '-1px'}}>
-                                <thead><tr><th className="col-wide">Personas Físicas</th><th className="col-std">Identificación Oficial</th><th className="col-std">CURP</th><th className="col-std">RFC</th><th className="col-std">Comprobante Domicilio</th><th className="col-std">Acta Matrimonio</th><th className="col-std">-</th></tr></thead>
-                                <tbody>
-                                    {docPersons.map(p => (
-                                        <tr key={p.id}>
-                                            <td style={{fontWeight: 'bold'}}>{p.name} {p.sujeto ? `(${p.sujeto})` : ''}</td>
-                                            <td>{p.identificacion}</td>
-                                            <td>{p.curp}</td>
-                                            <td>{p.rfc}</td>
-                                            <td>{p.comp_dom}</td>
-                                            <td>{p.acta_mat}</td>
-                                            <td>-</td>
+                        </div>
+                    </section>
+                    
+                    {/* SECCIÓN: ADMINISTRACIÓN */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <Briefcase className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Identificación de la Administración</h4>
+                        </div>
+                        <div className="overflow-x-auto border border-slate-100 rounded-lg">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase">
+                                    <tr>
+                                        <th className="p-3">Nombre</th>
+                                        <th className="p-3">Cargo</th>
+                                        <th className="p-3 text-center">Accionista</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {admins.map((admin, i) => (
+                                        <tr key={admin.id} className="hover:bg-slate-50/50">
+                                            <td className="p-3 font-medium text-slate-900">{admin.name}</td>
+                                            <td className="p-3 text-slate-600">{admin.cargo}</td>
+                                            <td className="p-3 text-center text-slate-600">
+                                                {admin.es_socio === 'si' 
+                                                    ? (admin.porcentaje && admin.porcentaje !== 'N/A' ? `SÍ (${admin.porcentaje}%)` : 'SÍ') 
+                                                    : 'NO'}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </section>
+
+                    {/* SECCIÓN: ESCRITURAS */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <FileText className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Escrituras Dictaminadas</h4>
+                        </div>
+                        <div className="space-y-3">
+                            {deeds.map((deed, i) => (
+                                <div key={deed.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                    <p className="text-xs font-bold text-blue-900 uppercase mb-1">{deed.tipo || 'Escritura'}</p>
+                                    <div className="text-sm grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-slate-700">
+                                        <p><span className="text-slate-500 text-xs">Número:</span> {formatNumber(deed.numero)}</p>
+                                        <p><span className="text-slate-500 text-xs">Fecha:</span> {formatLongDate(deed.fecha)}</p>
+                                        <p className="md:col-span-2"><span className="text-slate-500 text-xs">Fedatario:</span> {deed.fedatario}</p>
+                                        <p><span className="text-slate-500 text-xs">Registro:</span> {deed.registro}</p>
+                                        <p><span className="text-slate-500 text-xs">Lugar:</span> {deed.lugar}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* SECCIÓN: DOCUMENTACIÓN */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                            <ClipboardCheck className="text-blue-900" size={20} />
+                            <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Documentación Dictaminada</h4>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-2">
+                            {[
+                                { l: "Comp. Domicilio", v: formData.doc_comp_dom },
+                                { l: "Acta Constitutiva", v: formData.doc_acta_const },
+                                { l: "RPP Acta", v: formData.doc_rpp_acta },
+                                { l: "RFC Constancia", v: formData.doc_rfc_const },
+                                { l: "Otras Escrituras", v: formData.doc_otras_esc },
+                                { l: "RPP Otras", v: formData.doc_rpp_otras }
+                            ].map((item, i) => (
+                                <div key={i} className="bg-slate-50 p-2 rounded border border-slate-100 flex flex-col items-center text-center">
+                                    <span className="text-[10px] uppercase text-slate-500 font-bold">{item.l}</span>
+                                    <span className={`text-sm font-bold ${item.v && item.v.toUpperCase() === 'SI' ? 'text-green-600' : 'text-slate-400'}`}>{item.v || '-'}</span>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {docPersons.length > 0 && (
+                            <div className="overflow-x-auto border border-slate-100 rounded-lg mt-2">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase">
+                                        <tr>
+                                            <th className="p-2">Persona</th>
+                                            <th className="p-2">Identificación</th>
+                                            <th className="p-2">CURP</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {docPersons.map((p, i) => (
+                                            <tr key={p.id} className="hover:bg-slate-50/50">
+                                                <td className="p-2">{p.name}</td>
+                                                <td className="p-2 text-xs text-slate-500">{p.identificacion}</td>
+                                                <td className="p-2 text-xs text-slate-500">{p.curp}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
+                    </section>
+
+                    {/* SECCIÓN: OBSERVACIONES */}
+                    {(formData.obs_sociedad || formData.obs_rep_legal) && (
+                        <section>
+                            <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                                <Info className="text-blue-900" size={20} />
+                                <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Observaciones</h4>
+                            </div>
+                            <div className="space-y-2">
+                                {formData.obs_sociedad && (
+                                    <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300">
+                                        <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">De la Sociedad</p>
+                                        <p className="text-sm leading-relaxed italic text-slate-600">"{formData.obs_sociedad}"</p>
+                                    </div>
+                                )}
+                                {formData.obs_rep_legal && (
+                                    <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300">
+                                        <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Del Representante Legal</p>
+                                        <p className="text-sm leading-relaxed italic text-slate-600">"{formData.obs_rep_legal}"</p>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* SECCIÓN V: CUESTIONAMIENTOS */}
+                    <section>
+                         <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                             <CheckCircle className="text-blue-900" size={20} />
+                             <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Cuestionamientos</h4>
+                         </div>
+                        <div className="grid grid-cols-1 gap-y-1">
+                        {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(n => (
+                            <div key={n} className="flex justify-between items-center text-xs py-2 border-b border-slate-300 last:border-none">
+                            <span className="text-slate-600 leading-tight pr-4">{n}. {getQuestionLabel(n)}</span>
+                            <span className={`font-bold ${formData[`q${n}`] === 'No' ? 'text-red-500' : 'text-blue-900'}`}>
+                                {formData[`q${n}`] || '-'}
+                            </span>
+                            </div>
+                        ))}
+                        </div>
+                    </section>
+
+                    {/* SECCIÓN VI: CONCLUSIÓN */}
+                    <section className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                        <Info className="text-blue-900" size={20} />
+                        <h4 className="text-sm font-bold uppercase tracking-wider text-blue-900">Conclusión</h4>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-300">
+                             <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Conclusión</p>
+                             <p className="text-sm leading-relaxed italic text-slate-600">
+                                "{formData.conclusion || 'Sin conclusión definida.'}"
+                             </p>
+                        </div>
+                    </section>
+
+                    {/* FIRMA */}
+                    <div className="pt-12 flex flex-col items-center">
+                        <div className="w-64 border-t border-slate-400 mb-2"></div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest">SOFIMAS Consulores del Noroeste S.A. de C.V., SOFOM ENR</p>
+                        <p className="text-sm font-bold text-slate-900">{formData.nombre_firmante}</p>
                     </div>
 
-                    <div className="sec-h">IX.- Escrituras Dictaminadas</div>
-                    <div className="sec-c" style={{padding: 0, border: 'none'}}>
-                        <table className="deed-table">
-                            <thead><tr><th>Tipo de Escritura</th><th>Numero de Escritura</th><th>Fecha</th><th>Nombre Fedatario</th><th>Lugar</th><th>Datos Registro</th></tr></thead>
-                            <tbody>
-                                {deeds.map(deed => (
-                                    <tr key={deed.id}>
-                                        <td>{deed.tipo}</td>
-                                        <td>{deed.numero}</td>
-                                        <td>{deed.fecha}</td>
-                                        <td>{deed.fedatario}</td>
-                                        <td>{deed.lugar}</td>
-                                        <td>{deed.registro}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
                     </div>
-                </>
-                )}
-
-                {/* Sections Page 4 */}
-                {currentSheet === 4 && (
-                <>
-                    <div className="sec-h">X.- Conclusión</div><div className="sec-c" style={{textAlign: 'center', fontWeight: 'bold', fontSize:'14px', padding:'10px'}}>{formData.conclusion}</div>
                     
-                    <div className="sec-h">XI.- Fecha y Firma</div>
-                    <div className="sec-c" style={{padding: '20px'}}>
-                        <div style={{textAlign: 'center', fontWeight: 'bold', marginBottom: '40px', fontSize: '12px'}}>
-                            Hermosillo, Sonora a {formatLongDate(formData.fechaDocumento)}
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <div className="w-64 border-t border-black mb-2"></div>
-                            <div style={{fontWeight: 'bold', marginBottom: '4px'}}>{FIXED_COMPANY}</div>
-                            <div>{formData.nombre_firmante}</div>
-                        </div>
+                    {/* FOOTER */}
+                    <div className="bg-slate-50 px-8 py-4 flex flex-col md:flex-row justify-between items-center text-[10px] text-slate-400 border-t border-slate-100">
+                    <p>{FIXED_COMPANY}</p>
+                    <p className="mt-1 md:mt-0 font-medium">Documento generado para fines de evaluación de crédito</p>
                     </div>
-                </>
-                )}
-
-            </div>
+                </div>
+             </div>
         </div>
-      </div>
     </div>
   );
 }
 
 // Helper Components
-function SectionToggle({ title, isOpen, onToggle, isInvalid, children }) {
-    return (
-        <div>
-            <div className={`cat-h ${!isOpen ? 'collapsed' : ''} ${isInvalid ? 'bg-red-100 text-red-800 border-red-200' : ''}`} onClick={onToggle}>
-                {title} <span className="arrow">▼</span>
-            </div>
-            {isOpen && <div className="bg-white p-3 border border-slate-200 border-t-0 mb-3">{children}</div>}
-        </div>
-    );
-}
-
 function getQuestionLabel(n) {
     const labels = [
         "El solicitante y/o garante hipotecario o aval ¿tiene(n) capacidad jurídica para contratar o conceder garantías?",
@@ -1368,4 +2168,25 @@ function getQuestionLabel(n) {
         "¿Existe alguna observación legal que impida la formalización del crédito?"
     ];
     return labels[n-1] || "";
+}
+
+function SectionToggle({ title, isOpen, onToggle, isInvalid, children }) {
+    return (
+        <div className="border-b border-slate-200">
+            <button 
+                onClick={onToggle}
+                className={`w-full text-left px-4 py-3 flex justify-between items-center text-xs font-bold uppercase transition-colors ${
+                    isOpen ? 'bg-slate-50 text-blue-900' : 'bg-white text-slate-600 hover:bg-slate-50'
+                } ${isInvalid ? 'text-red-600' : ''}`}
+            >
+                {title}
+                <span className={`transform transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            {isOpen && (
+                <div className="p-4 bg-slate-50 border-t border-slate-100 text-sm space-y-3 animate-slideDown">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
 }
