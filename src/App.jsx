@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Login from './pages/Login';
+import DesignSystem from './pages/DesignSystem';
 import MainLayout from './components/layout/MainLayout';
 import DashboardOverview from './features/dashboard/DashboardOverview';
 import ClientsView from './features/clients/ClientsView';
@@ -10,9 +11,20 @@ import AccountingView from './features/accounting/AccountingView';
 import ReportsView from './features/reports/ReportsView';
 import CalendarView from './features/calendar/CalendarView';
 import CreditoView from './features/credito/CreditoView';
-import SettingsView from './features/settings/SettingsView';
+import JuridicoView from './features/juridico/JuridicoView';
+import DictamenForm from './features/juridico/components/DictamenForm';
 
 function App() {
+  // Check for standalone route (Manual Routing)
+  const path = window.location.pathname;
+  if (path === '/dictamen') {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const name = params.get('name');
+    // Mock data fetching logic needed here or passing minimal props
+    return <DictamenForm mode="page" applicationName={name || 'Solicitante'} applicationId={id} />;
+  }
+
   // Global State
   const [session, setSession] = useState({ isLoggedIn: false, user: null });
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -45,6 +57,8 @@ function App() {
         return <ProspectosView />;
       case 'credito':
         return <CreditoView />;
+      case 'juridico':
+        return <JuridicoView />;
       case 'pld':
         return <PLDView />;
       case 'cotizador':
@@ -57,6 +71,8 @@ function App() {
         return <CalendarView />;
       case 'settings':
         return <SettingsView />;
+      case 'design':
+        return <DesignSystem />;
       default:
         return <DashboardOverview onNavigate={setActiveTab} />;
     }

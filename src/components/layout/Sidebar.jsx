@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, UserPlus, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, ShieldAlert, FileText, Settings, LogOut, Menu, Calculator, FileBarChart, Calendar, CreditCard, Scale } from 'lucide-react';
 import NavItem from './NavItem';
 import logo from '../../assets/sofimas-logo.png';
 
@@ -9,6 +9,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
     { id: 'clients', label: 'Clientes', icon: Users },
     { id: 'prospectos', label: 'Prospectos', icon: UserPlus },
     { id: 'credito', label: 'Crédito', icon: CreditCard },
+    { id: 'juridico', label: 'Jurídico', icon: Scale },
     { id: 'pld', label: 'Módulo PLD', icon: ShieldAlert },
     { id: 'cotizador', label: 'Cotizador', icon: FileText },
     { id: 'accounting', label: 'Contabilidad', icon: Calculator },
@@ -20,7 +21,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
     <>
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-20 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={toggleMobileMenu}
         />
@@ -32,14 +33,14 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
         lg:translate-x-0 lg:static lg:shadow-none justify-between flex flex-col
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        
+
         {/* Logo Section */}
         <div className="p-6">
           <div className="flex items-center justify-center mb-8 px-2">
-            <img 
-              src={logo} 
-              alt="Sofimas Logo" 
-              className="w-4/5 h-auto object-contain rounded-xl" 
+            <img
+              src={logo}
+              alt="Sofimas Logo"
+              className="w-4/5 h-auto object-contain rounded-xl"
             />
           </div>
 
@@ -53,7 +54,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
                 active={activeTab === item.id}
                 onClick={() => {
                   onTabChange(item.id);
-                  toggleMobileMenu(); 
+                  toggleMobileMenu();
                 }}
               />
             ))}
@@ -73,22 +74,21 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
               </div>
             </div>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => onTabChange('settings')}
-            className={`flex items-center gap-3 px-4 py-2 w-full rounded-lg transition-colors ${
-              activeTab === 'settings' 
-                ? 'bg-blue-600/10 text-blue-500' 
+            className={`flex items-center gap-3 px-4 py-2 w-full rounded-lg transition-colors ${activeTab === 'settings'
+                ? 'bg-blue-600/10 text-blue-500'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
-             <Settings size={20} />
-             <span>Configuración</span>
+            <Settings size={20} />
+            <span>Configuración</span>
           </button>
-          
+
           <button className="flex items-center gap-3 px-4 py-2 w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg mt-1 transition-colors">
-             <LogOut size={20} />
-             <span>Cerrar Sesión</span>
+            <LogOut size={20} />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>

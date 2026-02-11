@@ -306,7 +306,7 @@ export default function DictamenJuridico({ onBack }) {
     const colorGreen600 = [22, 163, 74];    // green-600
     const colorRed = [220, 38, 38]; // red-600
 
-    const margin = 15;
+    const margin = 12;
     const pageWidth = doc.internal.pageSize.getWidth();
     const contentWidth = pageWidth - (margin * 2);
     
@@ -419,24 +419,24 @@ export default function DictamenJuridico({ onBack }) {
     doc.setFontSize(16);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...colorBlue900);
-    doc.text("DICTAMEN JURÍDICO", pageWidth - margin, yPos + 5, { align: 'right' });
+    doc.text("DICTAMEN JURÍDICO", pageWidth - margin, yPos + 10, { align: 'right' });
     
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...colorSlate500);
-    doc.text(FIXED_COMPANY, pageWidth - margin, yPos + 10, { align: 'right' });
+    doc.text(FIXED_COMPANY, pageWidth - margin, yPos + 14, { align: 'right' });
 
     doc.setFontSize(7);
     doc.setTextColor(...colorSlate400);
-    doc.text(formatLongDate(formData.fechaDocumento), pageWidth - margin, yPos + 14, { align: 'right' });
+    doc.text(formatLongDate(formData.fechaDocumento), pageWidth - margin, yPos + 18, { align: 'right' });
 
-    yPos += 20;
+    yPos += 26;
     
     // Línea separadora (border-b border-gray-100)
     doc.setDrawColor(...colorSlate100);
     doc.setLineWidth(0.3);
     doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 5;
+    yPos += 4;
 
 
     // --- I. IDENTIFICACIÓN ---
@@ -1786,16 +1786,17 @@ export default function DictamenJuridico({ onBack }) {
                 <div className="bg-white shadow-xl rounded-sm overflow-hidden border-t-8 border-blue-900 min-h-[1100px]">
                     
                     {/* HEADER */}
-                    <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center">
-                    <div>
-                        <img src={logo} alt="SOFIMAS Logo" className="h-16 w-auto object-contain" />
+                    <div className="px-8 pt-8 pb-4 flex flex-col md:flex-row justify-between items-center">
+                    <div className="flex items-center">
+                        <img src={logo} alt="SOFIMAS Logo" className="h-20 w-auto object-contain" />
                     </div>
                     <div className="mt-4 md:mt-0 text-right">
-                        <h2 className="text-2xl font-light text-blue-900 uppercase tracking-tight">Dictamen Jurídico</h2>
-                        <p className="text-sm text-gray-500 font-medium">{FIXED_COMPANY}</p>
+                        <h2 className="text-2xl font-bold text-[#1a3a5c] uppercase tracking-tight">Dictamen Jurídico</h2>
+                        <p className="text-sm text-[#1a4580] font-medium">{FIXED_COMPANY}</p>
                         <p className="text-xs text-slate-400 mt-1">{formatLongDate(formData.fechaDocumento)}</p>
                     </div>
                     </div>
+                    <div className="border-b border-gray-300 mx-8 mt-4"></div>
 
                     {/* CONTENIDO PRINCIPAL */}
                     <div className="p-8 space-y-4">
