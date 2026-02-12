@@ -1,5 +1,22 @@
 import React from 'react';
 import { Check, X } from 'lucide-react';
+import logo from '../../../assets/sofimas-logo.png';
+
+const PREGUNTAS_CUESTIONARIO = [
+    "El solicitante y/o garante hipotecario o aval ¿tiene(n) capacidad jurídica para contratar o conceder garantías?",
+    "La identificación de quien firma, ¿hace plena fe de su identidad?",
+    "En su caso, quien firma en representación del solicitante y/o garante hipotecario o aval, ¿tiene facultades para suscribir títulos de crédito y, de ser necesario, para otorgar garantías reales y/o personales, y que las mismas no le han sido revocadas, modificadas o limitadas?",
+    "El bien inmueble otorgado en garantía, ¿es propiedad del garante hipotecario y se encuentra libre de gravámenes y limitaciones de dominio que afecten la garantía?",
+    "El régimen matrimonial del garante hipotecario persona física, ¿permite constituir legalmente la garantía?",
+    "¿Los datos del Registro Público de la Propiedad coinciden con los de las escrituras de propiedad?",
+    "¿Se cuenta con el certificado de libertad de gravámenes, el cual reporta que el inmueble se encuentra libre de gravámenes?",
+    "¿Se cuenta con el número oficial, alineamiento y uso de suelo, en caso de requerirse?",
+    "¿La garantía requiere avalúo?",
+    "¿Se consultó que los otorgantes de crédito no se encontraran en las listas de personas bloqueadas de la CNBV?",
+    "¿El solicitante y/o garante hipotecario o aval proporcionaron la autorización para ser investigados en el Buró de Crédito?",
+    "¿Existe alguna observación referente a la situación del Buró de Crédito del solicitante, garante hipotecario y/o aval?",
+    "¿Existe alguna observación legal que impida la formalización del crédito?"
+];
 
 const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
     // Helper para fechas
@@ -12,12 +29,11 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
     const { datosNotariales, registroPublico, cuadroAccionario, administracion, poderes, representanteLegal, conlusion, cuestionario, comentarios } = data;
 
     return (
-        <div ref={ref} className="p-8 max-w-[21cm] mx-auto bg-white text-xs font-sans text-slate-800 print:text-xs">
+        <div ref={ref} className="p-8 w-full mx-auto bg-white text-xs font-sans text-slate-800 print:text-xs">
             {/* HEADER */}
             <div className="flex justify-between items-start border-b-2 border-[#135bec] pb-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#135bec] tracking-widest">SOFIMAS</h1>
-                    <p className="text-[10px] text-slate-500 tracking-widest">SOCIEDAD FINANCIERA</p>
+                    <img src={logo} alt="SOFIMAS" className="h-12 object-contain" />
                 </div>
                 <div className="text-right">
                     <h2 className="text-xl font-bold text-[#135bec]">DICTAMEN JURÍDICO</h2>
@@ -203,14 +219,17 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
             <div className="page-break-before mt-4">
                 <h4 className="text-[#135bec] font-bold uppercase mb-4">Cuestionamientos de Validación</h4>
                 <ul className="space-y-1">
-                    {Object.entries(cuestionario || {}).map(([key, val], idx) => (
-                        <li key={key} className="flex justify-between items-center py-1 border-b border-slate-50 text-[10px]">
-                            <span>{idx + 1}. Validación de punto de control legal ({key})</span>
-                            <span className={val ? "text-[#135bec] font-bold" : "text-red-500 font-bold"}>
-                                {val ? "SI" : "NO"}
-                            </span>
-                        </li>
-                    ))}
+                    {PREGUNTAS_CUESTIONARIO.map((pregunta, idx) => {
+                        const val = cuestionario ? cuestionario[pregunta] : undefined;
+                        return (
+                            <li key={idx} className="flex justify-between items-center py-1 border-b border-slate-50 text-[10px]">
+                                <span className="flex-1 pr-4">{idx + 1}. {pregunta}</span>
+                                <span className={`${val ? "text-[#135bec]" : "text-red-500"} font-bold whitespace-nowrap`}>
+                                    {val ? val.toUpperCase() : "SIN CONTESTAR"}
+                                </span>
+                            </li>
+                        );
+                    })}
                 </ul>
             </div>
 
