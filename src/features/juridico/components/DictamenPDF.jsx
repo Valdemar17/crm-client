@@ -20,13 +20,62 @@ const PREGUNTAS_CUESTIONARIO = [
 
 const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
     // Helper para fechas
+    // Helper para fechas
     const formatDate = (dateString) => {
         if (!dateString) return '__________________';
+
+        // 1. Handle YYYY-MM-DD (ISO/Input format)
+        if (typeof dateString === 'string') {
+            const isoMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (isoMatch) {
+                // Avoid timezone issues by constructing date manually or appending time
+                const [_, year, month, day] = isoMatch.map(Number);
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+            }
+
+            // 2. Handle DD/MM/YYYY or DD/MM/YY (Common formats)
+            const ddmmyyMatch = dateString.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+            if (ddmmyyMatch) {
+                const [_, dayStr, monthStr, yearStr] = ddmmyyMatch.map(Number);
+                let year = yearStr;
+                // Adjust 2-digit year (assume 20xx)
+                if (year < 100) year += 2000;
+
+                const date = new Date(year, monthStr - 1, dayStr);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+                }
+            }
+        }
+
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString; // Fallback to original string if invalid
+
         return date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    const { datosNotariales, registroPublico, cuadroAccionario, administracion, poderes, representanteLegal, conlusion, cuestionario, comentarios } = data;
+    // Helper para numeros
+    const formatNumber = (num) => {
+        if (!num) return 'N/A';
+        const cleanNum = String(num).replace(/,/g, '');
+        if (!isNaN(cleanNum) && cleanNum.trim() !== '') {
+            return Number(cleanNum).toLocaleString('es-MX');
+        }
+        return num;
+    };
+
+    // Helper para moneda (nuevo)
+    const formatCurrency = (num) => {
+        if (num === undefined || num === null || num === '') return '$0.00';
+        const cleanNum = String(num).replace(/[$,]/g, '');
+        if (!isNaN(cleanNum)) {
+            return Number(cleanNum).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        }
+        return num;
+    };
+
+    const { datosNotariales, registroPublico, accionistas, administracion, poderes, representanteLegal, conlusion, cuestionario, comentarios } = data;
 
     return (
         <div ref={ref} className="p-8 w-full mx-auto bg-white text-xs font-sans text-slate-800 print:text-xs">
@@ -57,31 +106,50 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
             </div>
 
             {/* ANTECEDENTES */}
+
             <h4 className="text-[#135bec] font-bold uppercase mb-2">Antecedentes del Hecho</h4>
-            <div className="grid grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
                     <label className="block text-[10px] font-bold text-slate-400">ESCRITURA</label>
-                    <p className="font-bold">{datosNotariales?.escritura || 'N/A'}</p>
+                    <p className="font-bold">{formatNumber(datosNotariales?.escritura)}</p>
                 </div>
                 <div>
                     <label className="block text-[10px] font-bold text-slate-400">VOLUMEN</label>
-                    <p className="font-bold">{datosNotariales?.volumen || 'N/A'}</p>
+                    <p className="font-bold">{formatNumber(datosNotariales?.volumen)}</p>
                 </div>
                 <div>
-                    <label className="block text-[10px] font-bold text-slate-400">FECHA PÚBLICA</label>
-                    <p className="font-bold">{datosNotariales?.fecha || 'N/A'}</p>
+                    <label className="block text-[10px] font-bold text-slate-400">FECHA DE ESCRITURA PÚBLICA</label>
+                    <p className="font-bold">{formatDate(datosNotariales?.fecha)}</p>
                 </div>
                 <div>
                     <label className="block text-[10px] font-bold text-slate-400">FEDATARIO</label>
-                    <p className="font-bold">{datosNotariales?.notario || 'N/A'}</p>
+                    <p className="font-bold uppercase">
+                        {datosNotariales?.notario || 'N/A'} {datosNotariales?.numero ? `(No. ${datosNotariales.numero})` : ''}
+                    </p>
                 </div>
                 <div>
                     <label className="block text-[10px] font-bold text-slate-400">REGISTRO PÚBLICO</label>
                     <p className="font-bold">{registroPublico?.folio || 'N/A'}</p>
                 </div>
                 <div>
-                    <label className="block text-[10px] font-bold text-slate-400">LUGAR REGISTRO</label>
-                    <p className="font-bold">{registroPublico?.lugar || 'N/A'}</p>
+                    <label className="block text-[10px] font-bold text-slate-400">FECHA DE REGISTRO</label>
+                    <p className="font-bold">{formatDate(registroPublico?.fecha)}</p>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400">CIRCUNSCRIPCIÓN</label>
+                    <p className="font-bold uppercase">{datosNotariales?.ciudad || registroPublico?.lugar || 'N/A'}</p>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400">DURACIÓN SOCIEDAD</label>
+                    <p className="font-bold uppercase">{data.duracion || 'Indefinida'}</p>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400">VIGENCIA</label>
+                    <p className="font-bold uppercase">{data.vigencia || 'N/A'}</p>
+                </div>
+                <div className="col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-400">DOMICILIO FISCAL</label>
+                    <p className="font-bold uppercase">{data.domicilio || 'N/A'}</p>
                 </div>
             </div>
 
@@ -92,131 +160,174 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
                     <tr className="bg-slate-50 border-b border-slate-200">
                         <th className="py-2 text-left text-[10px] font-bold text-slate-500 pl-2">Nombre / Razón Social</th>
                         <th className="py-2 text-center text-[10px] font-bold text-slate-500">Acciones</th>
+                        <th className="py-2 text-right text-[10px] font-bold text-slate-500">Cantidad</th>
                         <th className="py-2 text-right text-[10px] font-bold text-slate-500 pr-2">Porcentaje</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {cuadroAccionario && cuadroAccionario.length > 0 ? (
-                        cuadroAccionario.map((ax, idx) => (
-                            <tr key={idx}>
-                                <td className="py-2 pl-2 font-bold">{ax.nombre}</td>
-                                <td className="py-2 text-center">{ax.acciones}</td>
-                                <td className="py-2 text-right pr-2 text-[#135bec] font-bold">{ax.porcentaje}%</td>
+                    {accionistas && accionistas.length > 0 ? (
+                        <>
+                            {accionistas.map((ax, idx) => (
+                                <tr key={idx}>
+                                    <td className="py-2 pl-2 font-bold">{ax.nombre}</td>
+                                    <td className="py-2 text-center">{formatNumber(ax.acciones)}</td>
+                                    <td className="py-2 text-right font-bold text-slate-600">{formatCurrency(ax.valor)}</td>
+                                    <td className="py-2 text-right pr-2 text-[#135bec] font-bold">{ax.porcentaje}%</td>
+                                </tr>
+                            ))}
+                            {/* TOTALS ROW */}
+                            <tr className="bg-slate-50 border-t border-slate-200 font-bold">
+                                <td className="py-2 pl-2 text-right pr-4 text-slate-500">TOTAL</td>
+                                <td className="py-2 text-center">
+                                    {formatNumber(accionistas.reduce((acc, curr) => acc + (parseInt(curr.acciones) || 0), 0))}
+                                </td>
+                                <td className="py-2 text-right text-slate-700">
+                                    {formatCurrency(accionistas.reduce((acc, curr) => acc + (parseFloat(curr.valor) || 0), 0))}
+                                </td>
+                                <td className="py-2 text-right pr-2 text-[#135bec]">
+                                    {accionistas.reduce((acc, curr) => acc + (parseFloat(curr.porcentaje) || 0), 0).toFixed(2)}%
+                                </td>
                             </tr>
-                        ))
+                        </>
                     ) : (
-                        <tr><td colSpan="3" className="py-2 text-center text-slate-400">Sin información</td></tr>
+                        <tr><td colSpan="4" className="py-2 text-center text-slate-400">Sin información</td></tr>
                     )}
                 </tbody>
             </table>
 
             {/* OBJETO SOCIAL */}
-            <h4 className="text-[#135bec] font-bold uppercase mb-2">Objeto Social</h4>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50 p-3 rounded">
-                    <p className="text-[10px] font-bold text-slate-400 mb-1">FACULTAD TÍTULOS DE CRÉDITO</p>
-                    <p>{poderes?.titulosCredito || 'Según estatutos...'}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded">
-                    <p className="text-[10px] font-bold text-slate-400 mb-1">FACULTAD ARRENDAMIENTO</p>
-                    <p>{poderes?.otros || 'Según estatutos...'}</p>
-                </div>
-            </div>
-
-            {/* REPRESENTACION LEGAL */}
             <div className="mb-6 page-break-inside-avoid">
-                <h4 className="text-[#135bec] font-bold uppercase mb-2">Representación Legal</h4>
-                <div className="p-4 border border-slate-200 rounded">
-                    <h5 className="font-bold text-lg mb-2">{representanteLegal?.nombre}</h5>
-                    <p className="text-slate-500 mb-2">Poderes Otorgados:</p>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-2">
-                        <div className="flex justify-between border-b border-slate-100 py-1">
-                            <span>Acto de Dominio</span>
-                            <span className="font-bold">{poderes?.actosDominio}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 py-1">
-                            <span>Actos de Administración</span>
-                            <span className="font-bold">{poderes?.actosAdministracion}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 py-1">
-                            <span>Pleitos y Cobranzas</span>
-                            <span className="font-bold">{poderes?.pleitosCobranzas}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 py-1">
-                            <span>Títulos de Crédito</span>
-                            <span className="font-bold">{poderes?.titulosCredito}</span>
-                        </div>
+                <h4 className="text-[#135bec] font-bold uppercase mb-2">Objeto Social Detallado</h4>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">FACULTAD PARA TÍTULOS DE CRÉDITO</p>
+                        <p className="font-medium text-justify">{data.objetoSocial?.titulosCredito || 'No especificado'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">FACULTAD PARA ARRENDAMIENTO</p>
+                        <p className="font-medium text-justify">{data.objetoSocial?.arrendamiento || 'No especificado'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">FACULTAD PARA FACTORAJE</p>
+                        <p className="font-medium text-justify">{data.objetoSocial?.factoraje || 'No especificado'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">OTROS OBJETOS SOCIALES</p>
+                        <p className="font-medium text-justify">{data.objetoSocial?.otros || 'No especificado'}</p>
+                    </div>
+                </div>
+
+                {data.objetivo && (
+                    <div className="bg-slate-50 p-4 mb-6 rounded-sm border border-slate-100">
+                        <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Objeto Social Principal</p>
+                        <p className="italic text-slate-600 text-justify">
+                            {data.objetivo}
+                        </p>
+                    </div>
+                )}
+
+                {/* DATOS SAT */}
+                <h4 className="text-[#135bec] font-bold uppercase mb-2">Datos Inscritos ante el SAT</h4>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">RFC</p>
+                        <p className="font-medium">{data.rfc || 'No especificado'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">DOMICILIO FISCAL</p>
+                        <p className="font-medium text-justify">{data.domicilio || 'No especificado'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100 col-span-2">
+                        <p className="text-[10px] font-bold text-slate-400 mb-1">ACTIVIDAD ECONÓMICA</p>
+                        <p className="font-medium text-justify">{data.actividadEconomica || 'No especificado'}</p>
                     </div>
                 </div>
             </div>
 
-            {/* ESCRITURAS */}
-            {data.escrituras && data.escrituras.length > 0 && (
-                <div className="mb-6 page-break-inside-avoid">
-                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Reformas y Otras Escrituras</h4>
-                    <table className="w-full border-collapse text-[10px]">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="py-1 text-left pl-2">Tipo / Número</th>
-                                <th className="py-1 text-left">Fecha / Fedatario</th>
-                                <th className="py-1 text-right pr-2">Lugar</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.escrituras.map((esc, idx) => (
-                                <tr key={idx}>
-                                    <td className="py-1 pl-2 font-bold">{esc.tipo} - {esc.numero}</td>
-                                    <td className="py-1">{esc.fecha} - {esc.fedatario}</td>
-                                    <td className="py-1 text-right pr-2">{esc.lugar}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* DOCUMENTACION */}
+            {/* REPRESENTACION LEGAL */}
+            {/* REPRESENTACION LEGAL */}
             <div className="mb-6 page-break-inside-avoid">
-                <h4 className="text-[#135bec] font-bold uppercase mb-2">Expediente Documental</h4>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-[10px]">
-                    {data.documentacion && Object.entries(data.documentacion).map(([key, val]) => (
-                        <div key={key} className="flex justify-between border-b border-slate-50 py-1">
-                            <span className="capitalize">{key.replace('doc_', '').replace(/_/g, ' ')}</span>
-                            <span className={`font-bold ${typeof val === 'string' && val.toUpperCase() === 'SI' ? 'text-[#135bec]' : 'text-slate-400'}`}>{val}</span>
+                <h4 className="text-[#135bec] font-bold uppercase mb-4">Representación Legal</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    {data.representantes?.map((rep, index) => (
+                        <div key={index} className="border border-slate-200 rounded-lg p-4 bg-white break-inside-avoid shadow-sm">
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <h5 className="font-bold text-lg text-[#135bec] leading-tight">{rep.nombre}</h5>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                        {rep.cargo || 'REPRESENTANTE'}
+                                    </span>
+                                </div>
+                                {rep.cargo && (
+                                    <span className="bg-[#135bec] text-white text-[9px] px-2 py-1 rounded font-bold uppercase">
+                                        {rep.cargo}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="text-[10px] space-y-1 mb-4 text-slate-700">
+                                <div className="grid grid-cols-2 gap-x-2">
+                                    <div><span className="font-bold text-slate-900">RFC:</span> {rep.rfc || 'N/A'}</div>
+                                    <div><span className="font-bold text-slate-900">ID Oficial:</span> {rep.idOficial || 'N/A'}</div>
+                                </div>
+                                <div><span className="font-bold text-slate-900">CURP:</span> {rep.curp || 'N/A'}</div>
+                                <div className="leading-tight"><span className="font-bold text-slate-900">Domicilio:</span> {rep.domicilio || 'No especificado'}</div>
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-3">
+                                <h6 className="text-[10px] font-bold text-slate-400 uppercase mb-1">PODERES</h6>
+                                <p className="text-xs italic text-slate-600 mb-3 leading-snug min-h-[2.5em]">
+                                    {rep.poderes || 'Sin poderes especificados'}
+                                </p>
+
+                                <div className="bg-slate-50 rounded p-2 text-[9px] border border-slate-100">
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                                        <div><span className="font-bold text-[#135bec]">Escritura:</span> {rep.escritura}</div>
+                                        <div><span className="font-bold text-[#135bec]">Volumen:</span> {rep.volumen}</div>
+                                        <div><span className="font-bold text-[#135bec]">Fecha:</span> {rep.fecha}</div>
+                                        <div><span className="font-bold text-[#135bec]">Fedatario:</span> {rep.fedatario}</div>
+                                        <div className="col-span-2"><span className="font-bold text-[#135bec]">Registro:</span> {rep.registro}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ))}
+                    {(!data.representantes || data.representantes.length === 0) && (
+                        <div className="col-span-2 text-center text-slate-400 italic py-4 border border-dashed border-slate-200 rounded">
+                            No hay representantes legales registrados.
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* DOCUMENTACION PERSONAS */}
-            {data.documentacionPersonas && data.documentacionPersonas.length > 0 && (
+
+            {/* OBSERVACIONES */}
+            {(data.observacionesSociedad || data.observacionesRepresentante) && (
                 <div className="mb-6 page-break-inside-avoid">
-                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Documentación Personas Relacionadas</h4>
-                    <table className="w-full border-collapse text-[10px]">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="py-1 text-left pl-2">Nombre</th>
-                                <th className="py-1 text-center">RFC</th>
-                                <th className="py-1 text-right pr-2">Identificación</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {data.documentacionPersonas.map((p, idx) => (
-                                <tr key={idx}>
-                                    <td className="py-1 pl-2 font-bold">{p.nombre || p.sujeto}</td>
-                                    <td className="py-1 text-center">{p.rfc}</td>
-                                    <td className="py-1 text-right pr-2">
-                                        {p.identificacion_comp === 'SI' ? <Check size={12} className="inline text-green-600" /> : <X size={12} className="inline text-red-400" />}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Observaciones</h4>
+
+                    {data.observacionesSociedad && (
+                        <div className="bg-slate-50 p-4 rounded-sm border border-slate-100 mb-4">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">DE LA SOCIEDAD</p>
+                            <p className="italic text-slate-600 text-justify">
+                                "{data.observacionesSociedad}"
+                            </p>
+                        </div>
+                    )}
+
+                    {data.observacionesRepresentante && (
+                        <div className="bg-slate-50 p-4 rounded-sm border border-slate-100">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">DEL REPRESENTANTE LEGAL</p>
+                            <p className="italic text-slate-600 text-justify">
+                                "{data.observacionesRepresentante}"
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* CUESTIONARIO */}
-            <div className="page-break-before mt-4">
+            <div className="page-break-before mt-4 mb-6">
                 <h4 className="text-[#135bec] font-bold uppercase mb-4">Cuestionamientos de Validación</h4>
                 <ul className="space-y-1">
                     {PREGUNTAS_CUESTIONARIO.map((pregunta, idx) => {
@@ -232,6 +343,162 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
                     })}
                 </ul>
             </div>
+
+            {/* DOCUMENTACION */}
+            <div className="mb-6 page-break-inside-avoid">
+                <h4 className="text-[#135bec] font-bold uppercase mb-2">Expediente Documental</h4>
+                <table className="w-full border-collapse text-[9px]">
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="py-2 text-left pl-2 font-bold text-slate-700">Denominación Social</th>
+                            <th className="py-2 text-center font-bold text-slate-700">Comp. Domicilio</th>
+                            <th className="py-2 text-center font-bold text-slate-700">Acta Const.</th>
+                            <th className="py-2 text-center font-bold text-slate-700">RPP Acta</th>
+                            <th className="py-2 text-center font-bold text-slate-700">Otras Esc.</th>
+                            <th className="py-2 text-center font-bold text-slate-700">RPP Otras</th>
+                            <th className="py-2 text-center font-bold text-slate-700">RFC / Constancia</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        <tr>
+                            <td className="py-2 pl-2 font-bold text-slate-800 w-[20%]">
+                                {data.documentacion?.denominacion || data.denominacion || 'NO ESPECIFICADO'}
+                            </td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.comprobante_domicilio || 'NO'}</td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.acta_constitutiva || 'NO'}</td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.rpp_acta_constitutiva || 'NO'}</td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.otras_escrituras || 'NO'}</td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.rpp_otras_escrituras || 'NO'}</td>
+                            <td className="py-2 text-center w-[10%] font-bold text-slate-800">{data.documentacion?.rfc_situacion_fiscal || 'NO'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {/* DOCUMENTACION PERSONAS */}
+            {/* DOCUMENTACION PERSONAS */}
+            {data.documentacionPersonas && data.documentacionPersonas.length > 0 && (
+                <div className="mb-6 page-break-inside-avoid">
+                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Documentación Personas Relacionadas</h4>
+                    <table className="w-full border-collapse text-[9px]">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="py-2 text-left pl-2 font-bold text-slate-700">Nombre</th>
+                                <th className="py-2 text-center font-bold text-slate-700">Sujeto</th>
+                                <th className="py-2 text-center font-bold text-slate-700">ID Oficial</th>
+                                <th className="py-2 text-center font-bold text-slate-700">Comp. Domicilio</th>
+                                <th className="py-2 text-center font-bold text-slate-700">Acta Matrimonio</th>
+                                <th className="py-2 text-center font-bold text-slate-700">CURP</th>
+                                <th className="py-2 text-center font-bold text-slate-700">RFC / Constancia</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.documentacionPersonas.map((p, idx) => {
+                                // Find matching Rep to get the 'cargo' since docs only store name/rfc/curp
+                                const repMatch = data.representantes?.find(r => r.nombre === p.nombre);
+                                const cargo = repMatch?.cargo || 'REPRESENTANTE';
+
+                                return (
+                                    <tr key={idx}>
+                                        <td className="py-2 pl-2 font-bold text-slate-800 w-[20%]">{p.nombre || p.sujeto}</td>
+                                        <td className="py-2 text-center font-bold w-[10%] uppercase">{cargo}</td>
+                                        <td className="py-2 text-center w-[15%] text-slate-600">{repMatch?.idOficial || 'N/A'}</td>
+                                        <td className="py-2 text-center w-[10%] font-bold text-slate-800">{p.comprobante_domicilio || 'NO'}</td>
+                                        <td className="py-2 text-center w-[10%] font-bold text-slate-800">{p.acta_matrimonio || 'NO'}</td>
+                                        <td className="py-2 text-center w-[15%] text-slate-600 font-bold">{p.curp || 'N/A'}</td>
+                                        <td className="py-2 text-center w-[20%] font-bold text-slate-800">{p.rfc ? `${p.rfc}/SI` : 'NO'}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* CUESTIONARIO */}
+
+
+            {/* COMENTARIOS GENERALES */}
+            {data.comentariosGenerales && (
+                <div className="mt-6 mb-6">
+                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Comentarios Generales</h4>
+                    <p className="text-justify font-medium bg-slate-50 p-4 rounded border border-slate-100">
+                        {data.comentariosGenerales}
+                    </p>
+                </div>
+            )}
+
+            {/* ADMINISTRACION */}
+            {data.administracion && data.administracion.length > 0 && (
+                <div className="mt-6 mb-6 page-break-inside-avoid">
+                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Identificación de la Administración de la Sociedad</h4>
+                    <table className="w-full border-collapse text-[9px]">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="py-2 text-left pl-2 font-bold text-slate-700">Nombre</th>
+                                <th className="py-2 text-center font-bold text-slate-700">Cargo</th>
+                                <th className="py-2 text-center font-bold text-slate-700">¿Es Socio?</th>
+                                <th className="py-2 text-center font-bold text-slate-700">Porcentaje Accionario</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.administracion.map((adm, idx) => {
+                                const isSocio = adm.esSocio === 'SI';
+                                const porcentaje = isSocio ? (adm.porcentaje || '') : 'N/A';
+                                const missingNombre = !adm.nombre;
+                                const missingCargo = !adm.cargo;
+                                const missingPorcentaje = isSocio && !adm.porcentaje;
+
+                                return (
+                                    <tr key={idx}>
+                                        <td className={`py-2 pl-2 font-bold w-[40%] ${missingNombre ? 'text-red-500 bg-red-50' : 'text-slate-800'}`}>
+                                            {adm.nombre || 'NOMBRE PENDIENTE'}
+                                        </td>
+                                        <td className={`py-2 text-center font-bold w-[30%] uppercase ${missingCargo ? 'text-red-500 bg-red-50' : ''}`}>
+                                            {adm.cargo || 'CARGO PENDIENTE'}
+                                        </td>
+                                        <td className="py-2 text-center w-[15%] text-slate-600">{adm.esSocio || 'NO'}</td>
+                                        <td className={`py-2 text-center w-[15%] font-bold ${missingPorcentaje ? 'text-red-500 bg-red-50' : 'text-slate-800'}`}>
+                                            {porcentaje || 'PENDIENTE'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* ESCRITURAS */}
+            {data.escrituras && data.escrituras.length > 0 && (
+                <div className="mt-6 mb-6 page-break-inside-avoid">
+                    <h4 className="text-[#135bec] font-bold uppercase mb-2">Escrituras Dictaminadas</h4>
+                    <table className="w-full border-collapse text-[9px]">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="py-1 text-left pl-2 font-bold text-slate-700">Escritura Pública</th>
+                                <th className="py-1 text-center font-bold text-slate-700">Numero</th>
+                                <th className="py-1 text-center font-bold text-slate-700">Fecha</th>
+                                <th className="py-1 text-center font-bold text-slate-700">Federatario Público</th>
+                                <th className="py-1 text-center font-bold text-slate-700">Lugar</th>
+                                <th className="py-1 text-center font-bold text-slate-700">Registro Público</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.escrituras.map((esc, idx) => (
+                                <tr key={idx}>
+                                    <td className="py-1 pl-2 font-bold text-slate-800">{esc.tipo}</td>
+                                    <td className="py-1 text-center font-bold text-slate-800">{esc.numero}</td>
+                                    <td className="py-1 text-center text-slate-600">{esc.fecha}</td>
+                                    <td className="py-1 text-center text-slate-600">{esc.fedatario}</td>
+                                    <td className="py-1 text-center text-slate-600">{esc.lugar}</td>
+                                    <td className="py-1 text-center font-bold text-slate-800">{esc.registro || 'N/A'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* CONCLUSION */}
             <div className="mt-8 bg-slate-50 p-6 rounded border border-slate-200">
@@ -249,8 +516,8 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
             {/* FIRMA */}
             <div className="mt-12 text-center">
                 <div className="inline-block border-t border-slate-400 px-12 pt-2">
+                    <p className="text-slate-500 text-[10px]">SOFIMAS Consultores del Noroeste S.A. de C.V., SOFOM ENR</p>
                     <p className="font-bold">Lic. Andrea Lourdes Felix Felix</p>
-                    <p className="text-slate-500 text-[10px]">Área Jurídica - SOFIMAS</p>
                 </div>
             </div>
 

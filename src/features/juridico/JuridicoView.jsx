@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, FileText, Scale } from 'lucide-react';
+import { Search, Filter, FileText, Scale, Plus } from 'lucide-react';
 import StatusBadge from '../../components/ui/StatusBadge';
 import DictamenForm from './components/DictamenForm';
 
@@ -22,6 +22,11 @@ const JuridicoView = () => {
     const handleOpenDictamen = (app) => {
         // Abrir en nueva pestaña
         window.open(`/dictamen?id=${app._id}&name=${encodeURIComponent(app.solicitante.nombre)}`, '_blank');
+    };
+
+    const handleNewDictamen = () => {
+        // Abrir en nueva pestaña con ID 'new' y nombre por defecto
+        window.open('/dictamen?id=new&name=Nuevo+Dictamen', '_blank');
     };
 
     return (
@@ -47,6 +52,12 @@ const JuridicoView = () => {
                 </div>
                 <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
                     <Filter size={18} /> Filtrar Pendientes
+                </button>
+                <button
+                    onClick={handleNewDictamen}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#135bec] text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    <Plus size={18} /> Nuevo Dictamen
                 </button>
             </div>
 
