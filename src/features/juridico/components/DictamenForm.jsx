@@ -6,7 +6,7 @@ import logo from '../../../assets/sofimas-logo.png';
 import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
-import { Save, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Printer, Plus, Trash2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import DictamenPDF from './DictamenPDF';
 import Toast from '../../../components/ui/Toast';
 
@@ -54,10 +54,11 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
 
     const [formData, setFormData] = useState({
         denominacion: applicationName || '',
-        comentariosGenerales: initialData?.comentariosGenerales || '',
+
         rfc: initialData?.rfc || '',
         actividadEconomica: initialData?.actividadEconomica || '',
         objetivo: initialData?.objetivo || '',
+        objetivoDictamen: initialData?.objetivoDictamen || '',
         objetoSocial: {
             titulosCredito: '',
             arrendamiento: '',
@@ -68,11 +69,19 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
         antecedentes: initialData?.antecedentes || {},
         accionistas: initialData?.accionistas || [],
         representantes: initialData?.representantes || [],
-        observaciones: initialData?.observaciones || '', // Legacy
+        representantes: initialData?.representantes || [],
         observacionesSociedad: initialData?.observacionesSociedad || '',
         observacionesRepresentante: initialData?.observacionesRepresentante || '',
         cuestionario: initialData?.cuestionario || {},
-        documentacion: initialData?.documentacion || {},
+        documentacion: initialData?.documentacion || {
+            denominacion: '',
+            comprobante_domicilio: '',
+            acta_constitutiva: '',
+            rpp_acta_constitutiva: '',
+            otras_escrituras: '',
+            rpp_otras_escrituras: '',
+            rfc_situacion_fiscal: ''
+        },
         documentacionPersonas: initialData?.documentacionPersonas || [],
         escrituras: initialData?.escrituras || [],
         administracion: initialData?.administracion || [], // Fix: Initialize administracion
@@ -93,13 +102,15 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
 
         const reader = new FileReader();
         reader.onload = (evt) => {
-            const text = evt.target.result;
+            const text = evt.target.result.replace(/^\uFEFF/, ''); // Strip BOM
             const lines = text.split(/\r?\n/);
 
             const parsed = {
                 Denominación: [], Objetivo: [], Antecedentes: [], Accionistas: [],
                 Representantes: [], Observaciones: [], Cuestionamientos: [],
-                Documentación: [], Documentación_Personas: [], Escrituras: [], Conclusión: []
+                Denominación: [], Objetivo: [], Antecedentes: [], Accionistas: [],
+                Representantes: [], Observaciones: [], Cuestionamientos: [],
+                Documentación: [], 'Doc. Personas': [], Escrituras: [], Conclusión: [], Administración: [], 'Datos SAT': [], 'Objeto Social': []
             };
 
             let currentSection = null;
@@ -126,10 +137,26 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
             for (let line of lines) {
                 line = line.trim();
                 if (!line) continue;
-                if (line.startsWith('SECTION:')) {
-                    const sec = line.split(':')[1].trim();
-                    // Map to parsed keys case-insensitive
-                    const key = Object.keys(parsed).find(k => k.toLowerCase() === sec.toLowerCase());
+                // Handle cases where Excel wraps the section header in quotes
+                const cleanLine = line.replace(/^"|"$/g, '');
+                if (cleanLine.startsWith('SECTION:')) {
+                    const sec = cleanLine.split(':')[1].split(',')[0].trim();
+                    // Map section names to parsed keys
+                    let key = Object.keys(parsed).find(k => k.toLowerCase() === sec.toLowerCase());
+                    // Special case for sections with spaces or different export names
+                    if (!key) {
+                        if (sec.toLowerCase() === 'doc. personas') key = 'Doc. Personas';
+                        if (sec.toLowerCase() === 'datos sat') key = 'Datos SAT';
+                        if (sec.toLowerCase() === 'objeto social') key = 'Objetivo'; // Map to Objetivo array check
+                    }
+                    // If Objeto Social is distinct in export, we should map it. 
+                    // Wait, export has 'Objeto Social' (SECTION 3) separate from 'Objetivo'? 
+                    // in Reader: parsed.Objetivo. 
+                    // in Writer: SECTION: Objeto Social -> keys: objetivo, titulos_credito...
+                    // So we should map 'Objeto Social' -> 'Objetivo' component in parsed? 
+                    // Actually, let's just map it to 'Objetivo' in the parser object or handle alias.
+                    if (sec === 'Objeto Social') key = 'Objetivo';
+
                     currentSection = key || null;
                     headers = null;
                     continue;
@@ -168,16 +195,18 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
 
             setFormData(prev => ({
                 ...prev,
-                denominacion: parsed.Denominación[0]?.denominacion || prev.denominacion,
-                comentariosGenerales: parsed.Observaciones[0]?.obs_texto || parsed.Observaciones[0]?.observaciones || parsed.Denominación[0]?.comentarios || '',
-                rfc: parsed.Denominación[0]?.rfc || parsed.Denominación[0]?.sat_rfc || parsed.Antecedentes[0]?.rfc || parsed.Antecedentes[0]?.sat_rfc || parsed.Objetivo[0]?.sat_rfc || '',
-                actividadEconomica: parsed.Denominación[0]?.actividad || parsed.Denominación[0]?.sat_actividad || parsed.Objetivo[0]?.actividad_economica || parsed.Objetivo[0]?.sat_actividad || parsed.Antecedentes[0]?.sat_actividad || '',
-                objetivo: parsed.Objetivo[0]?.obj_descripcion || parsed.Objetivo[0]?.objetivo || '',
+                denominacion: parsed.Denominación[0]?.razon_social || parsed.Denominación[0]?.denominacion || prev.denominacion,
+                objetivoDictamen: parsed.Denominación[0]?.objetivo_dictamen || prev.objetivoDictamen,
+
+                rfc: parsed['Datos SAT'][0]?.rfc || parsed.Denominación[0]?.rfc || '',
+                actividadEconomica: parsed['Datos SAT'][0]?.actividad || parsed.Denominación[0]?.actividad || '',
+                domicilio: parsed['Datos SAT'][0]?.domicilio || parsed.Denominación[0]?.den_domicilio || '',
+                objetivo: parsed.Objetivo[0]?.objetivo || parsed.Objetivo[0]?.obj_descripcion || '',
                 objetoSocial: {
-                    titulosCredito: parsed.Objetivo[0]?.obj_titulos || parsed.Objetivo[0]?.titulos_credito || parsed.Objetivo[0]?.facultad_titulos || parsed.Objetivo[0]?.titulos || '',
-                    arrendamiento: parsed.Objetivo[0]?.obj_arrendamiento || parsed.Objetivo[0]?.arrendamiento || parsed.Objetivo[0]?.facultad_arrendamiento || '',
-                    factoraje: parsed.Objetivo[0]?.obj_factoraje || parsed.Objetivo[0]?.factoraje || parsed.Objetivo[0]?.facultad_factoraje || '',
-                    otros: parsed.Objetivo[0]?.obj_otros || parsed.Objetivo[0]?.otros_objetos || parsed.Objetivo[0]?.otros || parsed.Objetivo[0]?.otros_objetos_sociales || ''
+                    titulosCredito: parsed.Objetivo[0]?.titulos_credito || parsed.Objetivo[0]?.obj_titulos || '',
+                    arrendamiento: parsed.Objetivo[0]?.arrendamiento || parsed.Objetivo[0]?.obj_arrendamiento || '',
+                    factoraje: parsed.Objetivo[0]?.factoraje || parsed.Objetivo[0]?.obj_factoraje || '',
+                    otros: parsed.Objetivo[0]?.otros_objetos || parsed.Objetivo[0]?.otros || parsed.Objetivo[0]?.obj_otros || ''
                 },
                 antecedentes: parsed.Antecedentes[0] || {},
                 datosNotariales: {
@@ -196,14 +225,14 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     fecha: parsed.Antecedentes[0]?.ant_fecha_registro || parsed.Antecedentes[0]?.ant_fecha_reg || ''
                 },
                 duracion: parsed.Antecedentes[0]?.ant_duracion || '',
-                domicilio: parsed.Denominación[0]?.den_domicilio || parsed.Denominación[0]?.sat_domicilio || parsed.Antecedentes[0]?.ant_domicilio || parsed.Antecedentes[0]?.sat_domicilio || parsed.Objetivo[0]?.sat_domicilio || '',
+                // Removed duplicate domicilio assignment since it's handled in SAT Data
                 vigencia: parsed.Antecedentes[0]?.ant_vigencia || '',
                 accionistas: parsed.Accionistas.map(a => ({
                     nombre: a.nombre || a.accionista || a.name || '',
                     acciones: parseInt(a.acciones) || 0,
                     valor: parseFloat(a.valor || a.monto || a.capital || 0),
                     porcentaje: parseFloat(a.porcentaje) || 0
-                })),
+                })).filter(a => a.nombre),
                 representantes: parsed.Representantes.map(r => ({
                     nombre: r.nombre || r.representante || r.name || '',
                     cargo: r.cargo || r.puesto || '',
@@ -216,19 +245,27 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     fecha: r.fecha || r.rep_fecha || '',
                     fedatario: r.fedatario || r.notario || r.rep_fedatario || '',
                     registro: r.registro || r.rpt || r.rep_registro || '',
+                    fedatario: r.fedatario || r.notario || r.rep_fedatario || '',
+                    registro: r.registro || r.rpt || r.rep_registro || '',
                     volumen: r.volumen || r.rep_volumen || ''
-                })),
-                observaciones: parsed.Observaciones[0]?.obs_texto || '',
+                })).filter(r => r.nombre).reduce((acc, current) => {
+                    const x = acc.find(item => item.nombre === current.nombre);
+                    if (!x) {
+                        return acc.concat([current]);
+                    } else {
+                        return acc;
+                    }
+                }, []),
                 observacionesSociedad: parsed.Observaciones[0]?.obs_sociedad || '',
                 observacionesRepresentante: parsed.Observaciones[0]?.obs_representante || parsed.Observaciones[0]?.obs_rep_legal || '',
                 documentacion: {
                     denominacion: parsed.Denominación[0]?.razon_social || parsed.Denominación[0]?.denominacion || '',
-                    comprobante_domicilio: parsed.Documentación[0]?.doc_comprobante_domicilio || 'SI',
-                    acta_constitutiva: parsed.Documentación[0]?.doc_acta_constitutiva || 'SI',
-                    rpp_acta_constitutiva: parsed.Documentación[0]?.doc_rpp_acta_constitutiva || 'SI',
-                    otras_escrituras: parsed.Documentación[0]?.doc_otras_escrituras || 'SI',
-                    rpp_otras_escrituras: parsed.Documentación[0]?.doc_rpp_otras_escrituras || 'SI',
-                    rfc_situacion_fiscal: parsed.Documentación[0]?.doc_rfc_situacion_fiscal || 'SI'
+                    comprobante_domicilio: parsed.Documentación[0]?.doc_comprobante_domicilio || '',
+                    acta_constitutiva: parsed.Documentación[0]?.doc_acta_constitutiva || '',
+                    rpp_acta_constitutiva: parsed.Documentación[0]?.doc_rpp_acta_constitutiva || '',
+                    otras_escrituras: parsed.Documentación[0]?.doc_otras_escrituras || '',
+                    rpp_otras_escrituras: parsed.Documentación[0]?.doc_rpp_otras_escrituras || '',
+                    rfc_situacion_fiscal: parsed.Documentación[0]?.doc_rfc_situacion_fiscal || ''
                 },
                 cuestionario: PREGUNTAS_CUESTIONARIO.reduce((acc, pregunta, index) => {
                     const qKey = `q${index + 1}`;
@@ -236,14 +273,23 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     if (val) acc[pregunta] = val;
                     return acc;
                 }, {}),
-                documentacionPersonas: parsed.Representantes.map(r => ({
+                documentacionPersonas: (parsed['Doc. Personas'] && parsed['Doc. Personas'].length > 0) ? parsed['Doc. Personas'].map(p => ({
+                    nombre: p.nombre || '',
+                    rfc: p.rfc || '',
+                    curp: p.curp || '',
+                    identificacion_comp: 'SI',
+                    comprobante_domicilio: 'SI',
+                    acta_matrimonio: 'NO',
+                    archivo_id: null
+                })).filter(p => p.nombre) : parsed.Representantes.map(r => ({
                     nombre: r.nombre || r.representante || r.name || '',
                     rfc: r.rfc || r.rep_rfc || '',
                     curp: r.curp || r.rep_curp || '',
-                    identificacion_comp: 'SI', // Default
-                    comprobante_domicilio: 'SI', // Default
-                    acta_matrimonio: 'NO', // Default
-                })),
+                    identificacion_comp: 'SI',
+                    comprobante_domicilio: 'SI',
+                    acta_matrimonio: 'NO',
+                    archivo_id: null
+                })).filter(r => r.nombre),
                 escrituras: parsed.Escrituras.map(e => ({
                     tipo: e.tipo || e.escritura || '',
                     numero: e.numero || e.no || '',
@@ -251,8 +297,13 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     fedatario: e.fedatario || e.notario || '',
                     lugar: e.lugar || e.ciudad || '',
                     registro: e.registro || e.rpt || e.datos_registro || ''
-                })),
-                administracion: [], // New state for Administration section
+                })).filter(e => e.tipo),
+                administracion: parsed.Administración.map(a => ({
+                    nombre: a.nombre || '',
+                    cargo: a.cargo || '',
+                    esSocio: a.es_socio || a.socio || '',
+                    porcentaje: a.porcentaje || a.porcentaje_accionario || ''
+                })).filter(a => a.nombre),
                 conlusion: (parsed.Conclusión[0]?.conclusion?.toUpperCase().includes('FAVORABLE') || parsed.Conclusión[0]?.comentarios?.toUpperCase().includes('FAVORABLE')) ? 'Favorable' : 'Pendiente',
                 comentarios: parsed.Conclusión[0]?.conclusion || parsed.Conclusión[0]?.comentarios || '',
                 representanteLegal: {
@@ -270,7 +321,168 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
         reader.readAsText(file);
     };
 
+    const handleDownloadCSV = () => {
+        const sections = [];
+
+        // Helper to escape CSV values
+        const csvVal = (val) => {
+            if (val === null || val === undefined) return '""';
+            const stringVal = String(val);
+            if (stringVal.includes('"') || stringVal.includes(',') || stringVal.includes('\n')) {
+                return `"${stringVal.replace(/"/g, '""')}"`;
+            }
+            return stringVal;
+        };
+
+        // 1. Denominación
+        sections.push('SECTION: Denominación');
+        sections.push('razon_social,objetivo_dictamen');
+        sections.push(`${csvVal(formData.denominacion)},${csvVal(formData.objetivoDictamen)}`);
+        sections.push('');
+
+        // 2. Antecedentes
+        sections.push('SECTION: Antecedentes');
+        sections.push('ant_escritura,ant_volumen,ant_fecha,ant_fedatario,ant_num_fedatario,ant_circunscripcion,ant_registro_publico,ant_lugar_registro,ant_fecha_registro,ant_duracion,ant_vigencia');
+        sections.push(`${csvVal(formData.datosNotariales.escritura)},${csvVal(formData.datosNotariales.volumen)},${csvVal(formData.datosNotariales.fecha)},${csvVal(formData.datosNotariales.notario)},${csvVal(formData.datosNotariales.numero)},${csvVal(formData.datosNotariales.ciudad)},${csvVal(formData.registroPublico.folio)},${csvVal(formData.registroPublico.lugar)},${csvVal(formData.registroPublico.fecha)},${csvVal(formData.duracion)},${csvVal(formData.vigencia)}`);
+        sections.push('');
+
+        // 3. Objeto Social
+        sections.push('SECTION: Objeto Social');
+        sections.push('objetivo,titulos_credito,arrendamiento,factoraje,otros_objetos');
+        sections.push(`${csvVal(formData.objetivo)},${csvVal(formData.objetoSocial.titulosCredito)},${csvVal(formData.objetoSocial.arrendamiento)},${csvVal(formData.objetoSocial.factoraje)},${csvVal(formData.objetoSocial.otros)}`);
+        sections.push('');
+
+        // 4. Datos Inscritos ante el SAT
+        sections.push('SECTION: Datos SAT');
+        sections.push('rfc,actividad,domicilio');
+        sections.push(`${csvVal(formData.rfc)},${csvVal(formData.actividadEconomica)},${csvVal(formData.domicilio)}`);
+        sections.push('');
+
+        // 5. Accionistas
+        sections.push('SECTION: Accionistas');
+        sections.push('nombre,acciones,valor,porcentaje');
+        formData.accionistas.forEach(a => {
+            sections.push(`${csvVal(a.nombre)},${csvVal(a.acciones)},${csvVal(a.valor)},${csvVal(a.porcentaje)}`);
+        });
+        sections.push('');
+
+        // 6. Representantes
+        sections.push('SECTION: Representantes');
+        sections.push('nombre,cargo,rfc,curp,id_oficial,domicilio,poderes,escritura,volumen,fecha,fedatario,registro');
+        formData.representantes.forEach(r => {
+            sections.push(`${csvVal(r.nombre)},${csvVal(r.cargo)},${csvVal(r.rfc)},${csvVal(r.curp)},${csvVal(r.idOficial)},${csvVal(r.domicilio)},${csvVal(r.poderes)},${csvVal(r.escritura)},${csvVal(r.volumen)},${csvVal(r.fecha)},${csvVal(r.fedatario)},${csvVal(r.registro)}`);
+        });
+        sections.push('');
+
+        // 7. Observaciones
+        sections.push('SECTION: Observaciones');
+        sections.push('obs_sociedad,obs_representante');
+        sections.push(`${csvVal(formData.observacionesSociedad)},${csvVal(formData.observacionesRepresentante)}`);
+        sections.push('');
+
+        // 8. Cuestionamientos
+        sections.push('SECTION: Cuestionamientos');
+        const qHeaders = PREGUNTAS_CUESTIONARIO.map((_, i) => `q${i + 1}`).join(',');
+        sections.push(qHeaders);
+        const qValues = PREGUNTAS_CUESTIONARIO.map((q) => csvVal(formData.cuestionario[q] || '')).join(',');
+        sections.push(qValues);
+        sections.push('');
+
+        // 9. Documentación
+        sections.push('SECTION: Documentación');
+        sections.push('doc_comprobante_domicilio,doc_acta_constitutiva,doc_rpp_acta_constitutiva,doc_otras_escrituras,doc_rpp_otras_escrituras,doc_rfc_situacion_fiscal');
+        sections.push(`${csvVal(formData.documentacion.comprobante_domicilio)},${csvVal(formData.documentacion.acta_constitutiva)},${csvVal(formData.documentacion.rpp_acta_constitutiva)},${csvVal(formData.documentacion.otras_escrituras)},${csvVal(formData.documentacion.rpp_otras_escrituras)},${csvVal(formData.documentacion.rfc_situacion_fiscal)}`);
+        sections.push('');
+
+        // 10. Doc. Personas
+        sections.push('SECTION: Doc. Personas');
+        sections.push('nombre,identificacion,comprobante_domicilio,acta_matrimonio,rfc');
+        formData.documentacionPersonas.forEach(p => {
+            sections.push(`${csvVal(p.nombre)},${csvVal(p.identificacion_comp)},${csvVal(p.comprobante_domicilio)},${csvVal(p.acta_matrimonio)},${csvVal(p.rfc ? 'SI' : 'NO')}`);
+        });
+        sections.push('');
+
+        // 11. Administración
+        sections.push('SECTION: Administración');
+        sections.push('nombre,cargo,es_socio,porcentaje');
+        formData.administracion.forEach(a => {
+            sections.push(`${csvVal(a.nombre)},${csvVal(a.cargo)},${csvVal(a.esSocio)},${csvVal(a.porcentaje)}`);
+        });
+        sections.push('');
+
+        // 12. Escrituras
+        if (formData.escrituras && formData.escrituras.length > 0) {
+            sections.push('SECTION: Escrituras');
+            sections.push('tipo,numero,fecha,fedatario,lugar,registro');
+            formData.escrituras.forEach(e => {
+                sections.push(`${csvVal(e.tipo)},${csvVal(e.numero)},${csvVal(e.fecha)},${csvVal(e.fedatario)},${csvVal(e.lugar)},${csvVal(e.registro)}`);
+            });
+            sections.push('');
+        }
+
+        // 13. Conclusión
+        sections.push('SECTION: Conclusión');
+        sections.push('conclusion');
+        sections.push(`${csvVal(formData.comentarios)}`);
+
+        // Create blob and download
+        const csvContent = sections.join('\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Dictamen_${applicationName || 'Juridico'}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const validateForm = () => {
+        const errors = [];
+        if (isEmpty(formData.denominacion)) errors.push("Denominación / Razón Social");
+        if (isEmpty(formData.rfc)) errors.push("RFC");
+        if (isEmpty(formData.actividadEconomica)) errors.push("Actividad Económica");
+        if (isEmpty(formData.domicilio)) errors.push("Domicilio Fiscal");
+        if (isEmpty(formData.objetivo)) errors.push("Objeto Social Principal");
+
+        // Antecedentes
+        if (isEmpty(formData.datosNotariales.escritura)) errors.push("Antecedentes - Escritura");
+        if (isEmpty(formData.datosNotariales.fecha)) errors.push("Antecedentes - Fecha");
+        if (isEmpty(formData.datosNotariales.notario)) errors.push("Antecedentes - Notario");
+        if (isEmpty(formData.registroPublico.folio)) errors.push("Registro Público - Folio");
+        if (isEmpty(formData.registroPublico.fecha)) errors.push("Registro Público - Fecha");
+
+        if (formData.accionistas.length === 0) errors.push("Accionistas (Al menos uno)");
+
+        const totalPorcentaje = formData.accionistas.reduce((acc, curr) => acc + (parseFloat(curr.porcentaje) || 0), 0);
+        if (Math.abs(totalPorcentaje - 100) > 0.01) {
+            errors.push(`La suma de los porcentajes accionarios es ${totalPorcentaje.toFixed(2)}% (Debe ser 100%)`);
+        }
+
+        if (formData.representantes.length === 0) errors.push("Representantes (Al menos uno)");
+        if (!formData.administracion || formData.administracion.length === 0) errors.push("Administración (Al menos uno)");
+
+        if (formData.conlusion === 'Pendiente' || !formData.conlusion) errors.push("Conclusión - Favorable / No Favorable");
+        if (isEmpty(formData.comentarios)) errors.push("Conclusión - Comentarios");
+
+        // Validate IDs
+        formData.documentacionPersonas.forEach(p => {
+            if (p.identificacion_comp === 'SI' && !p.archivo_id) {
+                errors.push(`Falta ID de ${p.nombre}`);
+            }
+        });
+
+        return errors;
+    };
+
     const handleDownloadPDF = async () => {
+        const missingFields = validateForm();
+        if (missingFields.length > 0) {
+            showToast(`Faltan campos por llenar:\n${missingFields.join(', ')}`, "error");
+            return;
+        }
+
         const input = componentRef.current;
         if (!input) {
             showToast("No se encontró el contenido para generar el PDF.", "error");
@@ -278,7 +490,11 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
         }
 
         try {
-            // Wait for images/fonts if needed, usually html2canvas handles it.
+            // Wait for images/fonts if needed
+            await document.fonts.ready;
+            // Short delay to ensure images are rendered for html2canvas
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             // Using a higher scale for better resolution
             const canvas = await html2canvas(input, {
                 scale: 2,
@@ -289,40 +505,223 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
 
             const imgData = canvas.toDataURL('image/png');
 
-            // Calculate PDF dimensions to fit A4 width
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth(); // ~210mm
-            const pdfHeight = pdf.internal.pageSize.getHeight(); // ~297mm
+            // Calculate PDF dimensions (Letter)
+            // Capture Header and Body Parts
+            const headerElement = input.querySelector('#pdf-header');
+            const bodyPart1Element = input.querySelector('#pdf-body-part1');
+            const bodyPart2Element = input.querySelector('#pdf-body-part2');
+            const bodyPart3Element = input.querySelector('#pdf-body-part3');
+            const bodyPart4Element = input.querySelector('#pdf-body-part4');
 
-            const imgProps = pdf.getImageProperties(imgData);
-            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-            // Simple handling: If it fits on one page, add it. 
-            // If it's longer, we might need multiple pages or just a long page.
-            // For now, let's use a long page if necessary to avoid cutting content, 
-            // OR standard A4 scaling.
-            // User 'Cotizador' experience suggests a standard file. 
-            // Let's try to fit or create a custom size if it's really long? 
-            // Usually standard A4 is preferred.
-
-            // Approach: If content matches A4 ratio roughly, scale to A4.
-            // If it's very long, we might need to slice (complex). 
-            // Alternative: Change page size to match content height (Digital PDF).
-
-            // Let's stick to keeping it A4 width. 
-            // If height > A4 height, we add pages? 
-            // Creating a single long page is often safer for "visual match".
-
-            if (imgHeight > pdfHeight) {
-                // Content is longer than A4. Let's make the PDF page height match the content
-                // to ensure nothing is cut off.
-                const longPdf = new jsPDF('p', 'mm', [pdfWidth, imgHeight]);
-                longPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-                longPdf.save(`Dictamen_${applicationName || 'Juridico'}.pdf`);
-            } else {
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-                pdf.save(`Dictamen_${applicationName || 'Juridico'}.pdf`);
+            if (!headerElement || !bodyPart1Element || !bodyPart2Element || !bodyPart3Element || !bodyPart4Element) {
+                showToast("Error al identificar secciones del PDF.", "error");
+                return;
             }
+
+            const headerCanvas = await html2canvas(headerElement, { scale: 2, useCORS: true, logging: false, windowWidth: 1200 });
+            const bodyPart1Canvas = await html2canvas(bodyPart1Element, { scale: 2, useCORS: true, logging: false, windowWidth: 1200 });
+            const bodyPart2Canvas = await html2canvas(bodyPart2Element, { scale: 2, useCORS: true, logging: false, windowWidth: 1200 });
+            const bodyPart3Canvas = await html2canvas(bodyPart3Element, { scale: 2, useCORS: true, logging: false, windowWidth: 1200 });
+            const bodyPart4Canvas = await html2canvas(bodyPart4Element, { scale: 2, useCORS: true, logging: false, windowWidth: 1200 });
+
+            const headerImgData = headerCanvas.toDataURL('image/png');
+            const bodyPart1ImgData = bodyPart1Canvas.toDataURL('image/png');
+            const bodyPart2ImgData = bodyPart2Canvas.toDataURL('image/png');
+            const bodyPart3ImgData = bodyPart3Canvas.toDataURL('image/png');
+            const bodyPart4ImgData = bodyPart4Canvas.toDataURL('image/png');
+
+            // Initialize PDF (Letter)
+            const pdf = new jsPDF('p', 'mm', 'letter');
+            const pdfWidth = pdf.internal.pageSize.getWidth(); // 215.9
+            const pdfHeight = pdf.internal.pageSize.getHeight(); // 279.4
+
+            // Margins (mm)
+            const marginTop = 10;
+            const marginBottom = 14.1;
+            const marginLeft = 10;
+            const marginRight = 10;
+            const headerFromEdge = 12.5;
+            const footerFromEdge = 12.5;
+
+            const contentWidth = pdfWidth - marginLeft - marginRight;
+
+            // Calculate dimensions
+            const headerProps = pdf.getImageProperties(headerImgData);
+            const headerHeight = (headerProps.height * contentWidth) / headerProps.width;
+
+            // Calculate heights for parts
+            const bodyPart1Props = pdf.getImageProperties(bodyPart1ImgData);
+            const bodyPart1Height = (bodyPart1Props.height * contentWidth) / bodyPart1Props.width;
+
+            const bodyPart2Props = pdf.getImageProperties(bodyPart2ImgData);
+            const bodyPart2Height = (bodyPart2Props.height * contentWidth) / bodyPart2Props.width;
+
+            const bodyPart3Props = pdf.getImageProperties(bodyPart3ImgData); // Part 3
+            const bodyPart3Height = (bodyPart3Props.height * contentWidth) / bodyPart3Props.width;
+
+            const bodyPart4Props = pdf.getImageProperties(bodyPart4ImgData); // Part 4
+            const bodyPart4Height = (bodyPart4Props.height * contentWidth) / bodyPart4Props.width;
+
+            // Layout constants
+            // Layout constants
+            const footerHeight = 10;
+            const bodyStartY = headerFromEdge + headerHeight + 5; // Start body 5mm below header
+            const footerY = pdfHeight - footerFromEdge;
+            const footerLineY = footerY - 5;
+            // Ensure content stops BEFORE the footer line (plus some padding, e.g. 2mm)
+            const bodyLimitY = footerLineY - 2;
+            const contentHeightPerPage = bodyLimitY - bodyStartY;
+
+            // Helper to add content pages
+            let pageNum = 1;
+
+            // We need to know total pages beforehand for "Page X of Y"
+            // We need to know total pages beforehand for "Page X of Y"
+            // Since we FORCE a new page for each part, each part takes at least 1 page of "space" in the sequence, 
+            // unless we want blank pages to not count? But we add them. 
+            // Better: logical pages. 
+            // Part 1 starts P1.
+            // Part 2 starts P2.
+            // Part 3 starts P3.
+            // Part 4 starts P4.
+            // So minimum 4 pages.
+            // If any part exceeds 1 page (content > contentHeightPerPage), we add more.
+
+            const pagesP1 = Math.max(1, Math.ceil(bodyPart1Height / contentHeightPerPage));
+            const pagesP2 = Math.max(1, Math.ceil(bodyPart2Height / contentHeightPerPage));
+            const pagesP3 = Math.max(1, Math.ceil(bodyPart3Height / contentHeightPerPage));
+            const pagesP4 = Math.max(1, Math.ceil(bodyPart4Height / contentHeightPerPage));
+            const totalPages = pagesP1 + (pagesP2 - 1) + (pagesP3 - 1) + (pagesP4 - 1);
+            // Wait, logic:
+            // P1 starts at 1. If it needs 2 pages, it takes 1, 2. Next starts at 3.
+            // Current code forces next part to "pdf.addPage()".
+            // If P1 takes 1 page. We are at P1. addPage -> P2. Correct.
+            // If P1 takes 2 pages. We are at P2. addPage -> P3. Correct.
+            // So simply sum of pages needed is correct.
+
+            const actualTotalPages = Math.ceil(bodyPart1Height / contentHeightPerPage) +
+                Math.ceil(bodyPart2Height / contentHeightPerPage) +
+                Math.ceil(bodyPart3Height / contentHeightPerPage) +
+                Math.ceil(bodyPart4Height / contentHeightPerPage);
+
+            // However, we force page breaks even if content is 0? 
+            // If content is 0, ceil is 0. But we addPage(). So we use 1 page.
+            // So we should use Math.max(1, ...) if we want to reflect the blank page.
+            // But let's assume content is never 0 for now or blank pages are ok.
+            // Let's stick effectively to:
+
+            const calcPages = (h) => Math.max(1, Math.ceil(h / contentHeightPerPage));
+            const totalPagesFixed = calcPages(bodyPart1Height) + calcPages(bodyPart2Height) + calcPages(bodyPart3Height) + calcPages(bodyPart4Height);
+
+
+            // Helper to crop image from canvas/imgData
+            const cropImage = (base64Image, cropY, cropHeight, originalWidth, originalHeight) => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = originalWidth;
+                        canvas.height = (cropHeight * originalWidth) / contentWidth; // Map PDF height back to pixels
+
+                        const ctx = canvas.getContext('2d');
+
+                        // Source Y in pixels
+                        // position (cropY) is in PDF units (mm). originalHeight is in pixels.
+                        // contentWidth is PDF units width.
+                        // We need pixel ratio.
+                        // pixelWidth = originalWidth. pdfWidth = contentWidth.
+                        const ratio = originalWidth / contentWidth;
+
+                        const sy = cropY * ratio;
+                        const sHeight = cropHeight * ratio;
+
+                        // Draw slice
+                        ctx.drawImage(img, 0, sy, originalWidth, sHeight, 0, 0, originalWidth, sHeight);
+
+                        resolve(canvas.toDataURL('image/png'));
+                    };
+                    img.src = base64Image;
+                });
+            };
+
+            const addContentSection = async (imgData, totalHeight, props) => {
+                let heightLeft = totalHeight;
+                let position = 0;
+
+                // Ensure at least one loop run if forced page? 
+                // No, if height is 0, we don't draw content, but we already added the page outside.
+                // But we need to draw the footer!
+                // If height is 0, loop doesn't run, footer not drawn on that blank page.
+
+                if (heightLeft <= 0) {
+                    // Draw footer on empty page
+                    // Divider Line
+                    pdf.setDrawColor(19, 91, 236);
+                    pdf.setLineWidth(0.5);
+                    pdf.line(marginLeft, footerLineY, pdfWidth - marginRight, footerLineY);
+
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(150);
+                    pdf.text(`Página ${pageNum} de ${totalPagesFixed}`, pdfWidth - marginRight, footerY, { align: 'right' });
+                    return;
+                }
+
+                while (heightLeft > 0) {
+                    // Add Header
+                    pdf.addImage(headerImgData, 'PNG', marginLeft, headerFromEdge, contentWidth, headerHeight);
+
+                    // Determine current slice height
+                    const currentSliceHeight = Math.min(heightLeft, contentHeightPerPage);
+
+                    // Crop the image slice
+                    // position is the PDF-unit Y start position in the total content
+                    const sliceImgData = await cropImage(imgData, position, currentSliceHeight, props.width, props.height);
+
+                    // Add the slice
+                    // contentRectY is where we want the TOP of the current slice to appear.
+                    const contentRectY = bodyStartY;
+                    pdf.addImage(sliceImgData, 'PNG', marginLeft, contentRectY, contentWidth, currentSliceHeight);
+
+                    // Add Footer
+                    // Divider Line
+                    pdf.setDrawColor(19, 91, 236); // #135bec
+                    pdf.setLineWidth(0.5);
+                    pdf.line(marginLeft, footerLineY, pdfWidth - marginRight, footerLineY);
+
+                    pdf.setFontSize(8);
+                    pdf.setTextColor(150);
+                    pdf.text(`Página ${pageNum} de ${totalPagesFixed}`, pdfWidth - marginRight, footerY, { align: 'right' });
+
+                    heightLeft -= contentHeightPerPage;
+                    position += contentHeightPerPage;
+
+                    // If more content in this section OR if we have another section coming
+                    if (heightLeft > 0) {
+                        pdf.addPage();
+                        pageNum++;
+                    }
+                }
+            };
+
+            // Add Part 1
+            await addContentSection(bodyPart1ImgData, bodyPart1Height, bodyPart1Props);
+
+            // Force new page for Part 2 (Representacion Legal)
+            pdf.addPage();
+            pageNum++;
+            await addContentSection(bodyPart2ImgData, bodyPart2Height, bodyPart2Props);
+
+            // Force new page for Part 3
+            pdf.addPage();
+            pageNum++;
+            await addContentSection(bodyPart3ImgData, bodyPart3Height, bodyPart3Props);
+
+            // Force new page for Part 4
+            pdf.addPage();
+            pageNum++;
+            await addContentSection(bodyPart4ImgData, bodyPart4Height, bodyPart4Props);
+
+            pdf.save(`Dictamen_${applicationName || 'Juridico'}.pdf`);
 
         } catch (error) {
             console.error("Error generando PDF:", error);
@@ -442,7 +841,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
     const addAdministracion = () => {
         setFormData(prev => ({
             ...prev,
-            administracion: [...prev.administracion, { nombre: '', cargo: '', esSocio: 'NO', porcentaje: '' }]
+            administracion: [...prev.administracion, { nombre: '', cargo: '', esSocio: '', porcentaje: '' }]
         }));
     };
 
@@ -516,12 +915,14 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                             error={isEmpty(formData.denominacion) ? " " : ""}
                         />
 
-                        <h3 className="font-bold text-slate-800 mt-4">Comentarios Generales</h3>
+
+
+                        <h3 className="font-bold text-slate-800 mt-4">Objetivo del Dictamen</h3>
                         <textarea
-                            className="w-full border rounded-lg p-3 text-sm mt-2"
+                            className={`w-full border rounded-lg p-3 text-sm mt-2 ${isEmpty(formData.objetivoDictamen) ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                             rows="4"
-                            value={formData.comentariosGenerales}
-                            onChange={(e) => handleChange(null, 'comentariosGenerales', e.target.value)}
+                            value={formData.objetivoDictamen}
+                            onChange={(e) => handleChange(null, 'objetivoDictamen', e.target.value)}
                         />
                     </FormSection>
 
@@ -567,13 +968,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                 placeholder="Ej. Indefinida"
                             />
                         </div>
-                        <h3 className="font-bold text-slate-800 mt-4">Observaciones Antecedentes</h3>
-                        <textarea
-                            className={`w-full border rounded-lg p-3 text-sm mt-2 ${isEmpty(formData.observaciones) ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                            rows="3"
-                            value={typeof formData.observaciones === 'string' ? formData.observaciones : ''}
-                            onChange={(e) => handleChange(null, 'observaciones', e.target.value)}
-                        />
+
                     </FormSection>
 
                     <FormSection
@@ -593,8 +988,8 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
 
                         <h3 className="font-bold text-slate-800 mt-4 mb-2">Objeto Social Detallado</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Facultad para Títulos de Crédito</label>
+                            <div className={`p-3 bg-slate-50 rounded border ${isEmpty(formData.objetoSocial?.titulosCredito) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}>
+                                <label className={`text-xs font-bold uppercase block mb-1 ${isEmpty(formData.objetoSocial?.titulosCredito) ? 'text-red-700' : 'text-slate-500'}`}>Facultad para Títulos de Crédito</label>
                                 <textarea
                                     className="w-full bg-transparent text-sm border-none p-0 focus:ring-0 resize-none"
                                     rows="3"
@@ -603,8 +998,8 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                     placeholder="No especificado"
                                 />
                             </div>
-                            <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Facultad para Arrendamiento</label>
+                            <div className={`p-3 bg-slate-50 rounded border ${isEmpty(formData.objetoSocial?.arrendamiento) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}>
+                                <label className={`text-xs font-bold uppercase block mb-1 ${isEmpty(formData.objetoSocial?.arrendamiento) ? 'text-red-700' : 'text-slate-500'}`}>Facultad para Arrendamiento</label>
                                 <textarea
                                     className="w-full bg-transparent text-sm border-none p-0 focus:ring-0 resize-none"
                                     rows="3"
@@ -613,8 +1008,8 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                     placeholder="No especificado"
                                 />
                             </div>
-                            <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Facultad para Factoraje</label>
+                            <div className={`p-3 bg-slate-50 rounded border ${isEmpty(formData.objetoSocial?.factoraje) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}>
+                                <label className={`text-xs font-bold uppercase block mb-1 ${isEmpty(formData.objetoSocial?.factoraje) ? 'text-red-700' : 'text-slate-500'}`}>Facultad para Factoraje</label>
                                 <textarea
                                     className="w-full bg-transparent text-sm border-none p-0 focus:ring-0 resize-none"
                                     rows="3"
@@ -623,8 +1018,8 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                     placeholder="No especificado"
                                 />
                             </div>
-                            <div className="p-3 bg-slate-50 rounded border border-slate-200">
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Otros Objetos Sociales</label>
+                            <div className={`p-3 bg-slate-50 rounded border ${isEmpty(formData.objetoSocial?.otros) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}>
+                                <label className={`text-xs font-bold uppercase block mb-1 ${isEmpty(formData.objetoSocial?.otros) ? 'text-red-700' : 'text-slate-500'}`}>Otros Objetos Sociales</label>
                                 <textarea
                                     className="w-full bg-transparent text-sm border-none p-0 focus:ring-0 resize-none"
                                     rows="3"
@@ -651,18 +1046,21 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                 value={formData.rfc}
                                 onChange={(e) => handleChange(null, 'rfc', e.target.value)}
                                 placeholder="RFC de la empresa"
+                                error={isEmpty(formData.rfc) ? " " : ""}
                             />
                             <Input
                                 label="Actividad Económica"
                                 value={formData.actividadEconomica}
                                 onChange={(e) => handleChange(null, 'actividadEconomica', e.target.value)}
                                 placeholder="Actividad preponderante"
+                                error={isEmpty(formData.actividadEconomica) ? " " : ""}
                             />
                             <Input
                                 label="Domicilio Fiscal"
                                 value={formData.domicilio}
                                 onChange={(e) => handleChange(null, 'domicilio', e.target.value)}
                                 className="col-span-2"
+                                error={isEmpty(formData.domicilio) ? " " : ""}
                             />
                         </div>
                     </FormSection>
@@ -695,7 +1093,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         title="6. Representantes"
                         isOpen={expandedSections['representantes']}
                         onToggle={() => toggleSection('representantes')}
-                        hasError={formData.representantes.length === 0}
+                        hasError={formData.representantes.length === 0 || formData.representantes.some(r => isObjEmpty(r))}
                     >
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="font-bold text-slate-800">Representantes Legales</h3>
@@ -709,26 +1107,26 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                     <Trash2 size={16} />
                                 </button>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                    <Input label="Nombre" value={rep.nombre} onChange={(e) => updateRepresentante(i, 'nombre', e.target.value)} />
-                                    <Input label="Cargo" value={rep.cargo} onChange={(e) => updateRepresentante(i, 'cargo', e.target.value)} />
-                                    <Input label="RFC" value={rep.rfc} onChange={(e) => updateRepresentante(i, 'rfc', e.target.value)} />
-                                    <Input label="CURP" value={rep.curp} onChange={(e) => updateRepresentante(i, 'curp', e.target.value)} />
-                                    <Input label="ID Oficial (No.)" value={rep.idOficial} onChange={(e) => updateRepresentante(i, 'idOficial', e.target.value)} />
-                                    <Input label="Domicilio Completo" value={rep.domicilio} onChange={(e) => updateRepresentante(i, 'domicilio', e.target.value)} className="md:col-span-2" />
+                                    <Input label="Nombre" value={rep.nombre} onChange={(e) => updateRepresentante(i, 'nombre', e.target.value)} error={!rep.nombre ? " " : ""} />
+                                    <Input label="Cargo" value={rep.cargo} onChange={(e) => updateRepresentante(i, 'cargo', e.target.value)} error={!rep.cargo ? " " : ""} />
+                                    <Input label="RFC" value={rep.rfc} onChange={(e) => updateRepresentante(i, 'rfc', e.target.value)} error={!rep.rfc ? " " : ""} />
+                                    <Input label="CURP" value={rep.curp} onChange={(e) => updateRepresentante(i, 'curp', e.target.value)} error={!rep.curp ? " " : ""} />
+                                    <Input label="ID Oficial (No.)" value={rep.idOficial} onChange={(e) => updateRepresentante(i, 'idOficial', e.target.value)} error={!rep.idOficial ? " " : ""} />
+                                    <Input label="Domicilio Completo" value={rep.domicilio} onChange={(e) => updateRepresentante(i, 'domicilio', e.target.value)} className="md:col-span-2" error={!rep.domicilio ? " " : ""} />
                                 </div>
                                 <div className="border-t border-slate-200 pt-3 mt-3">
                                     <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Datos del Poder (Escritura)</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        <Input label="Escritura No." value={rep.escritura} onChange={(e) => updateRepresentante(i, 'escritura', e.target.value)} />
-                                        <Input label="Volumen" value={rep.volumen} onChange={(e) => updateRepresentante(i, 'volumen', e.target.value)} />
-                                        <Input label="Fecha" value={rep.fecha} onChange={(e) => updateRepresentante(i, 'fecha', e.target.value)} />
-                                        <Input label="Fedatario" value={rep.fedatario} onChange={(e) => updateRepresentante(i, 'fedatario', e.target.value)} />
-                                        <Input label="Registro Público" value={rep.registro} onChange={(e) => updateRepresentante(i, 'registro', e.target.value)} className="md:col-span-2" />
+                                        <Input label="Escritura No." value={rep.escritura} onChange={(e) => updateRepresentante(i, 'escritura', e.target.value)} error={!rep.escritura ? " " : ""} />
+                                        <Input label="Volumen" value={rep.volumen} onChange={(e) => updateRepresentante(i, 'volumen', e.target.value)} error={!rep.volumen ? " " : ""} />
+                                        <Input label="Fecha" value={rep.fecha} onChange={(e) => updateRepresentante(i, 'fecha', e.target.value)} error={!rep.fecha ? " " : ""} />
+                                        <Input label="Fedatario" value={rep.fedatario} onChange={(e) => updateRepresentante(i, 'fedatario', e.target.value)} error={!rep.fedatario ? " " : ""} />
+                                        <Input label="Registro Público" value={rep.registro} onChange={(e) => updateRepresentante(i, 'registro', e.target.value)} className="md:col-span-2" error={!rep.registro ? " " : ""} />
                                     </div>
                                     <div className="mt-3">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Poderes Otorgados</label>
                                         <textarea
-                                            className="w-full bg-white border border-slate-200 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                            className={`w-full bg-white border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none ${isEmpty(rep.poderes) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}
                                             rows="2"
                                             value={rep.poderes}
                                             onChange={(e) => updateRepresentante(i, 'poderes', e.target.value)}
@@ -745,13 +1143,13 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         title="7. Observaciones"
                         isOpen={expandedSections['observaciones']}
                         onToggle={() => toggleSection('observaciones')}
-                        hasError={false}
+                        hasError={isEmpty(formData.observacionesSociedad) || isEmpty(formData.observacionesRepresentante)}
                     >
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">DE LA SOCIEDAD</label>
                                 <textarea
-                                    className="w-full bg-white border border-slate-200 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className={`w-full bg-white border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none ${isEmpty(formData.observacionesSociedad) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}
                                     rows="3"
                                     value={formData.observacionesSociedad}
                                     onChange={(e) => setFormData(prev => ({ ...prev, observacionesSociedad: e.target.value }))}
@@ -761,7 +1159,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">DEL REPRESENTANTE LEGAL</label>
                                 <textarea
-                                    className="w-full bg-white border border-slate-200 rounded p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className={`w-full bg-white border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none ${isEmpty(formData.observacionesRepresentante) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}
                                     rows="3"
                                     value={formData.observacionesRepresentante}
                                     onChange={(e) => setFormData(prev => ({ ...prev, observacionesRepresentante: e.target.value }))}
@@ -803,7 +1201,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         title="9. Documentación"
                         isOpen={expandedSections['documentacion']}
                         onToggle={() => toggleSection('documentacion')}
-                        hasError={false}
+                        hasError={isObjEmpty(formData.documentacion)}
                     >
                         <h3 className="font-bold text-slate-800 mb-2">Checklist Documental</h3>
                         <div className="overflow-x-auto">
@@ -828,8 +1226,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.comprobante_domicilio}
                                                 onChange={(e) => updateCompanyDoc('comprobante_domicilio', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.comprobante_domicilio === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.comprobante_domicilio) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.comprobante_domicilio === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -839,8 +1238,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.acta_constitutiva}
                                                 onChange={(e) => updateCompanyDoc('acta_constitutiva', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.acta_constitutiva === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.acta_constitutiva) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.acta_constitutiva === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -850,8 +1250,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.rpp_acta_constitutiva}
                                                 onChange={(e) => updateCompanyDoc('rpp_acta_constitutiva', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.rpp_acta_constitutiva === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.rpp_acta_constitutiva) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.rpp_acta_constitutiva === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -861,8 +1262,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.otras_escrituras}
                                                 onChange={(e) => updateCompanyDoc('otras_escrituras', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.otras_escrituras === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.otras_escrituras) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.otras_escrituras === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -872,8 +1274,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.rpp_otras_escrituras}
                                                 onChange={(e) => updateCompanyDoc('rpp_otras_escrituras', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.rpp_otras_escrituras === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.rpp_otras_escrituras) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.rpp_otras_escrituras === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -883,8 +1286,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                             <select
                                                 value={formData.documentacion.rfc_situacion_fiscal}
                                                 onChange={(e) => updateCompanyDoc('rfc_situacion_fiscal', e.target.value)}
-                                                className={`border rounded px-1 py-0.5 ${formData.documentacion.rfc_situacion_fiscal === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                className={`border rounded px-1 py-0.5 ${isEmpty(formData.documentacion.rfc_situacion_fiscal) ? 'border-red-500 ring-1 ring-red-500' : formData.documentacion.rfc_situacion_fiscal === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
                                             >
+                                                <option value="">--</option>
                                                 <option value="SI">SI</option>
                                                 <option value="NO">NO</option>
                                                 <option value="NA">N/A</option>
@@ -900,7 +1304,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         title="10. Doc. Personas"
                         isOpen={expandedSections['documentacion_personas']}
                         onToggle={() => toggleSection('documentacion_personas')}
-                        hasError={formData.documentacionPersonas.length === 0}
+                        hasError={formData.documentacionPersonas.length === 0 || formData.documentacionPersonas.some(p => p.identificacion_comp === 'SI' && !p.archivo_id)}
                     >
                         <h3 className="font-bold text-slate-800 mt-6 mb-2">Documentación Personas</h3>
                         {formData.documentacionPersonas.length > 0 ? (
@@ -917,21 +1321,69 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                     </thead>
                                     <tbody>
                                         {formData.documentacionPersonas.map((p, i) => (
-                                            <tr key={i} className="bg-white border-b hover:bg-slate-50">
+                                            <tr key={i} className={`border-b ${(!p.archivo_id && p.identificacion_comp === 'SI') ? 'bg-red-50 border-red-300' : 'bg-white hover:bg-slate-50'}`}>
                                                 <td className="px-3 py-2 font-medium text-slate-900">
                                                     {p.nombre || '-'}
                                                     <div className="text-[10px] text-slate-400">{p.rfc}</div>
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
-                                                    <select
-                                                        value={p.identificacion_comp}
-                                                        onChange={(e) => updateDocPersona(i, 'identificacion_comp', e.target.value)}
-                                                        className={`border rounded px-1 py-0.5 ${p.identificacion_comp === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
-                                                    >
-                                                        <option value="SI">SI</option>
-                                                        <option value="NO">NO</option>
-                                                        <option value="NA">N/A</option>
-                                                    </select>
+                                                    <div className="flex flex-col gap-1 items-center">
+                                                        <select
+                                                            value={p.identificacion_comp}
+                                                            onChange={(e) => updateDocPersona(i, 'identificacion_comp', e.target.value)}
+                                                            className={`border rounded px-1 py-0.5 w-full text-center ${p.identificacion_comp === 'SI' ? 'text-green-600 font-bold' : 'text-slate-500'}`}
+                                                        >
+                                                            <option value="SI">SI</option>
+                                                            <option value="NO">NO</option>
+                                                            <option value="NA">N/A</option>
+                                                        </select>
+                                                        <div className="relative w-full">
+                                                            <input
+                                                                type="file"
+                                                                id={`file-id-${i}`}
+                                                                accept="image/png, image/jpeg, image/jpg"
+                                                                className="hidden"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files[0];
+                                                                    if (file) {
+                                                                        const newDocs = [...formData.documentacionPersonas];
+                                                                        newDocs[i].archivo_id = file;
+                                                                        newDocs[i].archivo_url = URL.createObjectURL(file); // Create URL for preview/PDF
+                                                                        newDocs[i].identificacion_comp = 'SI';
+                                                                        setFormData(prev => ({ ...prev, documentacionPersonas: newDocs }));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <div className="flex items-center gap-1">
+                                                                <label
+                                                                    htmlFor={`file-id-${i}`}
+                                                                    className={`cursor-pointer text-[10px] w-full block text-center py-1 rounded border truncate ${p.archivo_id ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 hover:bg-red-100 text-red-500 border-red-300'}`}
+                                                                    title={p.archivo_id ? p.archivo_id.name : "Cargar Archivo"}
+                                                                >
+                                                                    {p.archivo_id ? 'Archivo Cargado' : 'Cargar ID'}
+                                                                </label>
+                                                                {p.archivo_id && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newDocs = [...formData.documentacionPersonas];
+                                                                            if (newDocs[i].archivo_url) {
+                                                                                URL.revokeObjectURL(newDocs[i].archivo_url);
+                                                                            }
+                                                                            newDocs[i].archivo_id = null;
+                                                                            newDocs[i].archivo_url = null;
+                                                                            newDocs[i].identificacion_comp = 'NO';
+                                                                            setFormData(prev => ({ ...prev, documentacionPersonas: newDocs }));
+                                                                        }}
+                                                                        className="text-red-500 hover:bg-red-50 p-1 rounded border border-transparent hover:border-red-200"
+                                                                        title="Eliminar imagen"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[8px] text-slate-400 text-center mt-0.5">JPG, PNG (Max 5MB)</div>
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
                                                     <select
@@ -1010,8 +1462,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                                                 if (val === 'NO') updateAdministracion(i, 'porcentaje', 'N/A');
                                                 else if (adm.porcentaje === 'N/A') updateAdministracion(i, 'porcentaje', '');
                                             }}
-                                            className="w-full border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            className={`w-full border rounded px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${!adm.esSocio ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}
                                         >
+                                            <option value="">--</option>
                                             <option value="SI">SI</option>
                                             <option value="NO">NO</option>
                                         </select>
@@ -1038,7 +1491,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     </FormSection>
 
                     <FormSection
-                        title="11. Escrituras"
+                        title="12. Escrituras"
                         isOpen={expandedSections['escrituras']}
                         onToggle={() => toggleSection('escrituras')}
                         hasError={formData.escrituras.length === 0}
@@ -1052,14 +1505,14 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         {formData.escrituras.map((esc, i) => (
                             <div key={i} className="p-3 bg-slate-50 rounded mb-2 border">
                                 <div className="grid grid-cols-6 gap-2 mb-2">
-                                    <div className="col-span-2"><Input label="Tipo Escritura" value={esc.tipo} onChange={(e) => updateEscritura(i, 'tipo', e.target.value)} placeholder="Ej. Aumento Capital" /></div>
-                                    <div><Input label="Número" value={esc.numero} onChange={(e) => updateEscritura(i, 'numero', e.target.value)} /></div>
-                                    <div><Input type="date" label="Fecha" value={toInputDate(esc.fecha)} onChange={(e) => updateEscritura(i, 'fecha', e.target.value)} /></div>
-                                    <div className="col-span-2"><Input label="Fedatario Público" value={esc.fedatario} onChange={(e) => updateEscritura(i, 'fedatario', e.target.value)} /></div>
+                                    <div className="col-span-2"><Input label="Tipo Escritura" value={esc.tipo} onChange={(e) => updateEscritura(i, 'tipo', e.target.value)} placeholder="Ej. Aumento Capital" className={!esc.tipo ? 'border-red-300 bg-red-50' : ''} /></div>
+                                    <div><Input label="Número" value={esc.numero} onChange={(e) => updateEscritura(i, 'numero', e.target.value)} className={!esc.numero ? 'border-red-300 bg-red-50' : ''} /></div>
+                                    <div><Input type="date" label="Fecha" value={toInputDate(esc.fecha)} onChange={(e) => updateEscritura(i, 'fecha', e.target.value)} className={!esc.fecha ? 'border-red-300 bg-red-50' : ''} /></div>
+                                    <div className="col-span-2"><Input label="Fedatario Público" value={esc.fedatario} onChange={(e) => updateEscritura(i, 'fedatario', e.target.value)} className={!esc.fedatario ? 'border-red-300 bg-red-50' : ''} /></div>
                                 </div>
                                 <div className="grid grid-cols-6 gap-2 items-end">
-                                    <div className="col-span-2"><Input label="Lugar" value={esc.lugar} onChange={(e) => updateEscritura(i, 'lugar', e.target.value)} /></div>
-                                    <div className="col-span-3"><Input label="Datos Registro Público" value={esc.registro} onChange={(e) => updateEscritura(i, 'registro', e.target.value)} /></div>
+                                    <div className="col-span-2"><Input label="Lugar" value={esc.lugar} onChange={(e) => updateEscritura(i, 'lugar', e.target.value)} className={!esc.lugar ? 'border-red-300 bg-red-50' : ''} /></div>
+                                    <div className="col-span-3"><Input label="Datos Registro Público" value={esc.registro} onChange={(e) => updateEscritura(i, 'registro', e.target.value)} className={!esc.registro ? 'border-red-300 bg-red-50' : ''} /></div>
                                     <div className="flex justify-end mb-1">
                                         <button onClick={() => removeEscritura(i)} className="text-red-500 hover:bg-red-50 p-2 rounded flex items-center gap-1 text-xs">
                                             <Trash2 size={14} /> Eliminar
@@ -1072,7 +1525,7 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                     </FormSection>
 
                     <FormSection
-                        title="11. Conclusión"
+                        title="13. Conclusión"
                         isOpen={expandedSections['conclusion']}
                         onToggle={() => toggleSection('conclusion')}
                         hasError={formData.conlusion === 'Pendiente' || isEmpty(formData.comentarios)}
@@ -1122,17 +1575,20 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                         <p className="text-sm text-slate-500">Expediente: {applicationName}</p>
                     </div>
                     <div className="flex gap-3">
-                        <div className="relative">
-                            <input
-                                type="file"
-                                accept=".csv"
-                                onChange={handleFileUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <Button variant="outline" icon={Save}>Cargar CSV</Button>
+                        <div className="flex gap-3">
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleFileUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <Button variant="outline" icon={Save}>Cargar CSV</Button>
+                            </div>
+                            <Button variant="outline" onClick={handleDownloadCSV} icon={FileText}>Descargar CSV</Button>
+                            <Button variant="outline" onClick={handleDownloadPDF} icon={Printer}>Imprimir PDF</Button>
+                            <Button icon={Save} onClick={() => showToast("Guardado correctamente", "success")}>Guardar</Button>
                         </div>
-                        <Button variant="outline" onClick={handleDownloadPDF} icon={Printer}>Imprimir PDF</Button>
-                        <Button icon={Save} onClick={() => showToast("Guardado correctamente", "success")}>Guardar</Button>
                     </div>
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -1155,20 +1611,24 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
             maxWidth="max-w-6xl"
             footer={
                 <div className="flex justify-between w-full">
-                    <div className="relative">
-                        <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <Button variant="outline" icon={Save}>Cargar CSV</Button>
-                    </div>
-                    <Button variant="outline" onClick={handleDownloadPDF} icon={Printer}>
-                        Imprimir PDF
-                    </Button>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+                        <div className="flex gap-2">
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleFileUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <Button variant="outline" icon={Save}>Cargar CSV</Button>
+                            </div>
+                            <Button variant="outline" onClick={handleDownloadCSV} icon={FileText}>Descargar CSV</Button>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={handleDownloadPDF} icon={Printer}>
+                            Imprimir PDF
+                        </Button>
                         <Button icon={Save} onClick={() => showToast("Guardado correctamente", "success")}>Guardar Cambios</Button>
                     </div>
                 </div>
