@@ -93,7 +93,9 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
         poderes: { actosDominio: 'Mancomunado', actosAdministracion: 'Indistinto', pleitosCobranzas: 'Indistinto', titulosCredito: 'Mancomunado', otros: '', ...initialData?.poderes },
         duracion: initialData?.duracion || '',
         vigencia: initialData?.vigencia || '',
+        vigencia: initialData?.vigencia || '',
         domicilio: initialData?.domicilio || '',
+        documentacionLink: initialData?.documentacionLink || '',
     });
 
     const handleFileUpload = (e) => {
@@ -1522,6 +1524,27 @@ const DictamenForm = ({ isOpen, onClose, applicationId, applicationName, initial
                             </div>
                         ))}
                         {formData.escrituras.length === 0 && <p className="text-slate-400 italic text-sm text-center py-4 border border-dashed rounded">No hay escrituras adicionales registradas</p>}
+                    </FormSection>
+
+                    <FormSection
+                        title="12. Documentación Soporte"
+                        isOpen={expandedSections['documentacionSoporte']}
+                        onToggle={() => toggleSection('documentacionSoporte')}
+                        hasError={!formData.documentacionLink}
+                    >
+                        <div className="space-y-4">
+                            <h3 className="font-bold text-slate-800">Enlace a Documentación Digital</h3>
+                            <Input
+                                label="Link de OneDrive / SharePoint"
+                                value={formData.documentacionLink}
+                                onChange={(e) => handleChange(null, 'documentacionLink', e.target.value)}
+                                placeholder="https://..."
+                                className={!formData.documentacionLink ? 'border-red-300 bg-red-50 ring-1 ring-red-200' : ''}
+                            />
+                            <p className="text-xs text-slate-500 italic">
+                                Este enlace se convertirá en un código QR en el dictamen final para facilitar el acceso a la documentación soporte.
+                            </p>
+                        </div>
                     </FormSection>
 
                     <FormSection

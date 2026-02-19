@@ -29,8 +29,8 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed top-0 left-0 z-30 h-full w-64 bg-[#0d121b] text-white transition-transform duration-300 ease-in-out shadow-2xl
-        lg:translate-x-0 lg:static lg:shadow-none justify-between flex flex-col
+        fixed top-0 left-0 z-30 h-full w-64 bg-gradient-to-b from-[#0f172a] to-[#020617] text-white transition-transform duration-300 ease-in-out shadow-2xl
+        lg:translate-x-0 lg:static lg:shadow-none justify-between flex flex-col border-r border-slate-800/50
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
 
@@ -40,7 +40,7 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
             <img
               src={logo}
               alt="Sofimas Logo"
-              className="w-4/5 h-auto object-contain rounded-xl"
+              className="w-4/5 h-auto object-contain"
             />
           </div>
 
@@ -62,8 +62,8 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
         </div>
 
         {/* Bottom Section */}
-        <div className="p-6 border-t border-slate-800">
-          <div className="mb-4 px-4 py-3 bg-slate-900 rounded-xl border border-slate-800">
+        <div className="p-6 border-t border-slate-800/50">
+          <div className="mb-4 px-4 py-3 bg-slate-900/50 rounded-xl border border-slate-800/50">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#135bec] to-purple-500 flex items-center justify-center text-xs font-bold">
                 VM
@@ -78,8 +78,8 @@ export default function Sidebar({ activeTab, onTabChange, isMobileMenuOpen, togg
           <button
             onClick={() => onTabChange('settings')}
             className={`flex items-center gap-3 px-4 py-2 w-full rounded-lg transition-colors ${activeTab === 'settings'
-                ? 'bg-blue-600/10 text-blue-500'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-blue-600/10 text-blue-500'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
           >
             <Settings size={20} />

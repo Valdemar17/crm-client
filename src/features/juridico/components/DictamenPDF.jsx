@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react';
+import QRCode from 'qrcode';
 import logo from '../../../assets/sofimas-logo.png';
 
 const PREGUNTAS_CUESTIONARIO = [
@@ -19,6 +20,22 @@ const PREGUNTAS_CUESTIONARIO = [
 ];
 
 const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+    useEffect(() => {
+        if (data.documentacionLink) {
+            QRCode.toDataURL(data.documentacionLink)
+                .then(url => {
+                    setQrCodeUrl(url);
+                })
+                .catch(err => {
+                    console.error("Error generating QR", err);
+                });
+        } else {
+            setQrCodeUrl('');
+        }
+    }, [data.documentacionLink]);
+
     // Helper para fechas
     // Helper para fechas
     const formatDate = (dateString) => {
@@ -536,6 +553,28 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
             </div>
 
             <div id="pdf-body-part4">
+                {/* DOCUMENTACION SOPORTE */}
+                {data.documentacionLink && (
+                    <div className="mt-6 mb-6 page-break-inside-avoid">
+                        <h4 className="text-[#135bec] font-bold uppercase mb-4">Documentación Soporte</h4>
+                        <div className="bg-slate-50 p-6 rounded border border-slate-200 flex items-center">
+                            <div className="w-1/2 pr-6 border-r border-slate-200">
+                                <p className="font-bold text-slate-700 mb-4 text-lg">Acceso a Expediente Digital</p>
+                                <p className="text-sm text-slate-500 text-justify leading-relaxed">
+                                    Escanee el código QR para acceder a la carpeta de documentación soporte alojada en OneDrive/SharePoint, que contiene toda la evidencia documental referida en este dictamen.
+                                </p>
+                            </div>
+                            {qrCodeUrl && (
+                                <div className="w-1/2 pl-6 flex justify-center">
+                                    <a href={data.documentacionLink} target="_blank" rel="noopener noreferrer" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm inline-block cursor-pointer hover:shadow-md transition-all">
+                                        <img src={qrCodeUrl} alt="QR Documentación" className="w-56 h-56 object-contain" />
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* CONCLUSION */}
                 <div className="mt-8 bg-slate-50 p-6 rounded border border-slate-200">
                     <h4 className="text-[#135bec] font-bold uppercase mb-2">Conclusión Final</h4>
@@ -550,7 +589,7 @@ const DictamenPDF = React.forwardRef(({ data, applicationName }, ref) => {
                 </div>
 
                 {/* FIRMA */}
-                <div className="mt-12 text-center pb-8">
+                <div className="mt-36 text-center pb-8">
                     <div className="inline-block border-t border-slate-400 px-12 pt-2">
                         <p className="text-slate-500 text-[10px]">SOFIMAS Consultores del Noroeste S.A. de C.V., SOFOM ENR</p>
                         <p className="font-bold">Lic. Andrea Lourdes Felix Felix</p>

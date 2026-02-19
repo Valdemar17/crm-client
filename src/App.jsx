@@ -13,6 +13,7 @@ import CalendarView from './features/calendar/CalendarView';
 import CreditoView from './features/credito/CreditoView';
 import JuridicoView from './features/juridico/JuridicoView';
 import DictamenForm from './features/juridico/components/DictamenForm';
+import SettingsView from './features/settings/SettingsView';
 
 function App() {
   // Check for standalone route (Manual Routing)

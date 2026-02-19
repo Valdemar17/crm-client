@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  ChevronLeft, Database, Mail, Eye, EyeOff, LogIn, ScanFace, 
-  Moon, Sun 
+import {
+  ChevronLeft, Database, Mail, Eye, EyeOff, LogIn, ScanFace,
+  Moon, Sun
 } from 'lucide-react';
 import logo from '../assets/sofimas-logo.png';
 
@@ -17,8 +17,7 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
     e.preventDefault();
     if (email === 'admin@crm.com' && password === 'admin123') {
       onLogin({ name: 'Administrador', email: 'admin@crm.com', role: 'admin' });
-    } else {
-      setError('Credenciales incorrectas. Intenta: admin@crm.com / admin123');
+      setError('Credenciales incorrectas. Por favor verifica tu correo y contraseña.');
     }
   };
 
@@ -26,19 +25,19 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
     <div className="relative flex h-full min-h-screen w-full flex-col geometric-bg font-display text-[#0d121b] dark:text-white overflow-x-hidden">
       {/* Top App Bar */}
       <div className="flex items-center bg-transparent p-4 pb-2 justify-between relative z-10">
-        <button 
+        <button
           className="flex size-12 shrink-0 items-center justify-center rounded-full text-[#0d121b] dark:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
           aria-label="Volver"
         >
           <ChevronLeft size={28} />
         </button>
-        
+
         <h2 className="text-[#0d121b] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">
           S-Core
         </h2>
 
         {/* Theme Toggle Button */}
-        <button 
+        <button
           onClick={toggleTheme}
           className="absolute right-4 top-4 p-2 rounded-full text-[#0d121b] dark:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
         >
@@ -51,10 +50,10 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
         <div className="w-full max-w-md mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl overflow-hidden p-8 border border-slate-200 dark:border-slate-800 transition-colors duration-300">
           {/* Branding Logo */}
           <div className="flex justify-center mb-8">
-            <img 
-              src={logo} 
-              alt="Sofimas Logo" 
-              className="h-32 w-auto object-contain transition-transform hover:scale-105 duration-300" 
+            <img
+              src={logo}
+              alt="Sofimas Logo"
+              className="h-32 w-auto object-contain transition-transform hover:scale-105 duration-300"
             />
           </div>
 
@@ -80,10 +79,10 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
                 Correo Electrónico
               </label>
               <div className="flex w-full items-stretch rounded-lg group">
-                <input 
+                <input
                   className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-l-lg text-[#0d121b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#135bec]/20 border border-r-0 border-[#cfd7e7] dark:border-slate-700 bg-[#f8f9fc] dark:bg-slate-800 focus:border-[#135bec] dark:focus:border-[#135bec] h-14 placeholder:text-slate-400 p-[15px] text-base font-normal transition-colors"
-                  placeholder="nombre@empresa.com" 
-                  type="email" 
+                  placeholder="nombre@empresa.com"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -98,14 +97,14 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
                 Contraseña
               </label>
               <div className="flex w-full items-stretch rounded-lg group">
-                <input 
+                <input
                   className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-l-lg text-[#0d121b] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#135bec]/20 border border-r-0 border-[#cfd7e7] dark:border-slate-700 bg-[#f8f9fc] dark:bg-slate-800 focus:border-[#135bec] dark:focus:border-[#135bec] h-14 placeholder:text-slate-400 p-[15px] text-base font-normal transition-colors"
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button 
+                <button
                   type="button"
                   onClick={togglePassword}
                   className="text-slate-400 dark:text-slate-500 hover:text-[#135bec] dark:hover:text-[#135bec] cursor-pointer flex border border-l-0 border-[#cfd7e7] dark:border-slate-700 bg-[#f8f9fc] dark:bg-slate-800 items-center justify-center pr-[15px] rounded-r-lg group-focus-within:border-[#135bec] group-focus-within:ring-2 group-focus-within:ring-[#135bec]/20 transition-colors"
@@ -129,12 +128,12 @@ export default function Login({ isDarkMode, toggleTheme, onLogin }) {
           </form>
         </div>
       </div>
-       {/* Footer */}
-        <div className="pb-8 pt-4">
-          <p className="text-slate-400 dark:text-slate-500 text-xs text-center font-medium">
-            Versión 2.4.0 • <a className="hover:text-[#135bec] transition-colors" href="#">Términos de Servicio</a>
-          </p>
-        </div>
+      {/* Footer */}
+      <div className="pb-8 pt-4">
+        <p className="text-slate-400 dark:text-slate-500 text-xs text-center font-medium">
+          Versión 2.4.0 • <a className="hover:text-[#135bec] transition-colors" href="#">Términos de Servicio</a>
+        </p>
+      </div>
     </div>
   );
 }
